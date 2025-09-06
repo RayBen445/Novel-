@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novel Weaver</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400;1,700&family=Inter:wght@400;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            --bg-primary: #111827; --bg-secondary: #1f2937; --bg-tertiary: #374151;
+            --text-primary: #f3f4f6; --text-secondary: #9ca3af; --border-color: #4b5563;
+            --accent-color: #f59e0b; --accent-hover: #d97706; --font-body: 'Inter', sans-serif; --font-serif: 'Lora', serif;
+            --font-display: 'Playfair Display', serif; /* Special font for titles */
+        }
+        .theme-light {
+            --bg-primary: #ffffff; --bg-secondary: #f3f4f6; --bg-tertiary: #e5e7eb;
+            --text-primary: #111827; --text-secondary: #4b5563; --border-color: #d1d5db;
+        }
+        .theme-sepia {
+            --bg-primary: #fbf0d9; --bg-secondary: #f4e5c3; --bg-tertiary: #e9d9b1;
+            --text-primary: #43342A; --text-secondary: #5f493c; --border-color: #d8c6a2;
+        }
+        body { font-family: var(--font-body); background-color: var(--bg-primary); color: var(--text-primary); }
+        .special-font { font-family: var(--font-display); } /* Applied special font */
+        .sidebar { background-color: var(--bg-secondary); }
+        .main-content { background-color: var(--bg-primary); }
+        .writing-area { background-color: var(--bg-primary); border-color: var(--border-color); color: var(--text-primary); font-family: var(--font-serif); }
+        .writing-area:focus { border-color: var(--accent-color); box-shadow: 0 0 0 2px var(--accent-color); }
+        .btn-primary { background-color: var(--accent-color); color: #111827; }
+        .btn-primary:hover { background-color: var(--accent-hover); }
+        .btn-secondary { background-color: var(--bg-tertiary); color: var(--text-primary); }
+        .btn-secondary:hover { background-color: var(--border-color); }
+        .input-field { background-color: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color); }
+        .input-field:focus { border-color: var(--accent-color); box-shadow: 0 0 0 1px var(--accent-color); }
+        .tab.active { background-color: var(--bg-primary); color: var(--accent-color); border-color: var(--accent-color); }
+        .tab { border-color: transparent; }
+        .list-item.active { background-color: var(--bg-tertiary); }
+        .list-item:hover { background-color: var(--bg-tertiary); }
+        .modal-bg { background-color: rgba(0,0,0,0.75); }
+        .modal-content { background-color: var(--bg-secondary); }
+        .plot-board { display: flex; gap: 1rem; overflow-x: auto; height: 100%; }
+        .plot-column { background-color: var(--bg-secondary); min-width: 300px; max-width: 300px; border-radius: 0.5rem; display: flex; flex-direction: column; }
+        .plot-card { background-color: var(--bg-tertiary); padding: 0.75rem; border-radius: 0.5rem; cursor: grab; }
+        .plot-card.dragging { opacity: 0.5; }
+        .progress-bar-bg { background-color: var(--bg-tertiary); }
+        .progress-bar-fill { background-color: var(--accent-color); }
+        .ai-chat-bubble-user { background-color: var(--accent-color); color: #111827; }
+        .ai-chat-bubble-gemini { background-color: var(--bg-tertiary); }
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <div id="app" v-cloak class="flex h-full w-full">
+        <!-- Sidebar -->
+        <aside class="sidebar w-1/4 max-w-xs p-6 flex flex-col h-full">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-feather-alt text-3xl mr-3" :style="{color: 'var(--accent-color)'}"></i>
+                <h1 class="text-2xl font-bold special-font">Novel Weaver</h1>
+            </div>
+            <div class="mb-4">
+                <label for="novel-title" class="block text-sm font-semibold mb-2" :style="{color: 'var(--text-secondary)'}">Novel Title</label>
+                <input type="text" id="novel-title" class="input-field w-full rounded-md px-3 py-2" v-model="novel.title" @change="saveNovelDetails">
+            </div>
+            <div class="grid grid-cols-3 border-b mb-4" :style="{borderColor: 'var(--border-color)'}">
+                <button @click="activeTab = 'chapters'" :class="['tab', {'active': activeTab === 'chapters'}]" class="py-2 text-sm font-semibold border-b-2 transition">Chapters</button>
+                <button @click="activeTab = 'characters'" :class="['tab', {'active': activeTab === 'characters'}]" class="py-2 text-sm font-semibold border-b-2 transition">Characters</button>
+                <button @click="activeTab = 'plot'" :class="['tab', {'active': activeTab === 'plot'}]" class="py-2 text-sm font-semibold border-b-2 transition">Plot</button>
+                <button @click="activeTab = 'notes'" :class="['tab', {'active': activeTab === 'notes'}]" class="py-2 text-sm font-semibold border-b-2 transition">Notes</button>
+                <button @click="activeTab = 'ai'" :class="['tab', {'active': activeTab === 'ai'}]" class="py-2 text-sm font-semibold border-b-2 transition">AI</button>
+                <button @click="activeTab = 'settings'" :class="['tab', {'active': activeTab === 'settings'}]" class="py-2 text-sm font-semibold border-b-2 transition">Settings</button>
+            </div>
+            <div class="flex-grow overflow-y-auto">
+                 <div v-if="activeTab === 'chapters'"><ul class="space-y-2"><li v-for="chapter in chapters" @click="selectChapter(chapter)" :class="['list-item', {'active': activeChapter?.id === chapter.id}]" class="cursor-pointer px-4 py-2 rounded-lg transition truncate">{{ chapter.title }}</li></ul></div>
+                 <div v-if="activeTab === 'characters'"><ul class="space-y-2"><li v-for="character in characters" @click="selectCharacter(character)" :class="['list-item', {'active': activeCharacter?.id === character.id}]" class="cursor-pointer px-4 py-2 rounded-lg transition truncate">{{ character.name }}</li></ul></div>
+                 <div v-if="activeTab === 'plot'"><p class="text-sm p-2" :style="{color: 'var(--text-secondary)'}">Add plot points and drag them.</p></div>
+                 <div v-if="activeTab === 'notes'"><ul class="space-y-2"><li v-for="note in notes" @click="selectNote(note)" :class="['list-item', {'active': activeNote?.id === note.id}]" class="cursor-pointer px-4 py-2 rounded-lg transition truncate">{{ note.title }}</li></ul></div>
+                 <div v-if="activeTab === 'ai'"><p class="text-sm p-2" :style="{color: 'var(--text-secondary)'}">Ask Gemini for help with your novel.</p></div>
+                 <div v-if="activeTab === 'settings'">
+                     <h3 class="text-lg font-semibold mb-3">Theme</h3>
+                     <select v-model="novel.theme" @change="applyTheme" class="input-field w-full rounded-md px-3 py-2 mb-6"><option value="theme-dark">Dark</option><option value="theme-light">Light</option><option value="theme-sepia">Sepia</option></select>
+                     <h3 class="text-lg font-semibold mb-3">Export Novel</h3>
+                     <button @click="exportNovel('txt')" class="w-full btn-secondary font-bold py-2 px-4 rounded-lg transition mb-2">Export as .txt</button>
+                     <button @click="exportNovel('pdf')" class="w-full btn-secondary font-bold py-2 px-4 rounded-lg transition">Export as .pdf</button>
+                </div>
+            </div>
+            <button v-if="['chapters', 'characters', 'notes', 'plot'].includes(activeTab)" @click="showAddModal = true" class="mt-4 w-full btn-primary font-bold py-2 px-4 rounded-lg transition flex items-center justify-center"><i class="fas fa-plus mr-2"></i> Add New {{ addButtonText }}</button>
+        </aside>
+
+        <!-- Main Area -->
+        <main class="main-content flex-1 flex flex-col p-6 h-full overflow-hidden">
+             <!-- All Views -->
+             <template v-if="activeTab === 'chapters' && activeChapter"><div class="flex-shrink-0"><div class="flex justify-between items-center mb-2"><h2 class="text-3xl font-bold font-serif">{{ activeChapter.title }}</h2><div :style="{color: 'var(--text-secondary)'}">{{ wordCount }} words</div></div><div class="flex items-center gap-4 mb-4"><label class="text-sm" :style="{color: 'var(--text-secondary)'}">Goal:</label><input type="number" min="0" step="100" v-model.number="activeChapter.goal" @change="saveChapterGoal" class="input-field w-24 p-1 rounded-md text-sm"><div class="w-full progress-bar-bg rounded-full h-2.5"><div class="progress-bar-fill h-2.5 rounded-full" :style="{ width: wordCountProgress + '%' }"></div></div></div></div><div class="flex-grow relative"><textarea v-model="activeChapter.content" @input="saveChapterContent" class="writing-area w-full h-full text-lg leading-relaxed p-8 rounded-lg border-2 focus:outline-none resize-none"></textarea></div></template>
+             <template v-else-if="activeTab === 'characters' && activeCharacter"><h2 class="text-3xl font-bold font-serif mb-4">Character Profile</h2><div class="space-y-4"><div><label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Name</label><input type="text" v-model="activeCharacter.name" @change="saveCharacter" class="input-field w-full text-xl p-2 rounded-md"></div><div><label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Description & Backstory</label><textarea v-model="activeCharacter.description" @change="saveCharacter" class="input-field w-full h-64 p-2 rounded-md"></textarea></div></div></template>
+             <template v-else-if="activeTab === 'plot'"><div class="plot-board pb-4"><div v-for="column in plotColumns" :key="column" class="plot-column" @dragover.prevent @drop="onDrop($event, column)"><h3 class="text-lg font-bold p-4 flex-shrink-0" :style="{color: 'var(--text-secondary)'}">{{ column }}</h3><div class="p-2 space-y-2 overflow-y-auto flex-grow"><div v-for="point in getPlotPointsByColumn(column)" :key="point.id" class="plot-card" draggable="true" @dragstart="onDragStart($event, point)" :class="{'dragging': draggingPlotPointId === point.id}">{{ point.text }}</div></div></div></div></template>
+             <template v-else-if="activeTab === 'notes' && activeNote"><h2 class="text-3xl font-bold font-serif mb-4">Note</h2><div class="space-y-4 flex flex-col h-full"><div><label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Title</label><input type="text" v-model="activeNote.title" @change="saveNote" class="input-field w-full text-xl p-2 rounded-md"></div><div class="flex-grow"><label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Content</label><textarea v-model="activeNote.content" @change="saveNote" class="input-field w-full h-full p-2 rounded-md"></textarea></div></div></template>
+             <template v-else-if="activeTab === 'ai'"><h2 class="text-3xl font-bold font-serif mb-4 flex-shrink-0">AI Assistant</h2><div class="flex-grow overflow-y-auto space-y-4 p-4" ref="aiChatContainer"><div v-for="message in aiConversation" class="flex" :class="message.role === 'user' ? 'justify-end' : 'justify-start'"><div class="p-3 rounded-lg max-w-lg" :class="message.role === 'user' ? 'ai-chat-bubble-user' : 'ai-chat-bubble-gemini'"><div v-html="message.content"></div></div></div><div v-if="aiIsLoading" class="flex justify-start"><div class="p-3 rounded-lg ai-chat-bubble-gemini"><i class="fas fa-circle-notch fa-spin"></i> Thinking...</div></div></div><div class="flex-shrink-0 mt-4 space-y-2"><div class="flex gap-2"><input type="text" v-model="aiPrompt" @keyup.enter="sendAiPrompt" :disabled="aiIsLoading" placeholder="Ask Gemini anything..." class="input-field w-full px-4 py-2 rounded-lg"><button @click="sendAiPrompt" :disabled="aiIsLoading" class="btn-primary font-bold px-4 py-2 rounded-lg transition"><i class="fas fa-paper-plane"></i></button></div><button @click="sendChapterToAi" :disabled="!activeChapter || aiIsLoading" class="w-full btn-secondary text-sm py-2 px-4 rounded-lg transition">Use Active Chapter as Context</button></div></template>
+             <template v-else-if="!hasActiveContent"><div class="flex items-center justify-center h-full"><div class="text-center" :style="{color: 'var(--text-secondary)'}"><i class="fas fa-book-open text-6xl mb-4"></i><p class="text-xl">Select an item to begin.</p></div></div></template>
+        </main>
+        
+        <!-- Modal -->
+        <div v-if="showAddModal" class="modal-bg fixed inset-0 flex items-center justify-center z-50"><div class="modal-content p-8 rounded-lg shadow-2xl w-full max-w-md"><h3 class="text-2xl font-bold mb-6">New {{ addButtonText }}</h3><input type="text" v-model="newItemName" @keyup.enter="addItem" class="input-field w-full px-3 py-2 mb-6 rounded-md" :placeholder="modalPlaceholder"><div class="flex justify-end space-x-4"><button @click="showAddModal = false" class="btn-secondary px-6 py-2 rounded-lg font-semibold transition">Cancel</button><button @click="addItem" class="btn-primary px-6 py-2 rounded-lg font-bold transition">Create</button></div></div></div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // IMPORTANT: Paste your Firebase project's configuration object here.
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const { createApp, ref, onMounted, computed, watch, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                // State
+                const user = ref(null), novel = ref({ title: 'The Last Banana', theme: 'theme-dark' });
+                const chapters = ref([]), characters = ref([]), notes = ref([]), plotPoints = ref([]);
+                const activeTab = ref('chapters'), activeChapter = ref(null), activeCharacter = ref(null), activeNote = ref(null);
+                const showAddModal = ref(false), newItemName = ref('');
+                const aiPrompt = ref(''), aiConversation = ref([]), aiIsLoading = ref(false), aiChatContainer = ref(null);
+                const draggingPlotPointId = ref(null), plotColumns = ref(['Act I', 'Act II', 'Act III', 'Resolution']);
+                let debounceTimer = null, unsub = {};
+
+                // Computed
+                const wordCount = computed(() => activeChapter.value?.content?.trim().length > 0 ? activeChapter.value.content.trim().split(/\s+/).length : 0);
+                const wordCountProgress = computed(() => (!activeChapter.value || !activeChapter.value.goal) ? 0 : Math.min((wordCount.value / activeChapter.value.goal) * 100, 100));
+                const addButtonText = computed(() => activeTab.value === 'plot' ? 'Plot Point' : activeTab.value.slice(0, -1));
+                const modalPlaceholder = computed(() => ({ chapters: 'Chapter Title', characters: 'Character Name', notes: 'Note Title', plot: 'Plot Point Description' })[activeTab.value] || '');
+                const hasActiveContent = computed(() => (activeTab.value === 'chapters' && activeChapter.value) || (activeTab.value === 'characters' && activeCharacter.value) || (activeTab.value === 'notes' && activeNote.value) || ['plot', 'ai', 'settings'].includes(activeTab.value));
+
+                // Methods
+                const applyTheme = (theme) => { document.documentElement.className = theme; if (user.value) updateDoc(doc(db, `users/${user.value.uid}/novels/main`), { theme }); };
+                const selectChapter = (c) => activeChapter.value = c;
+                const selectCharacter = (c) => activeCharacter.value = c;
+                const selectNote = (n) => activeNote.value = n;
+                const saveWithDebounce = (docRef, data) => { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => updateDoc(docRef, data), 500); };
+                const saveChapterContent = () => saveWithDebounce(doc(db, `users/${user.value.uid}/novels/main/chapters`, activeChapter.value.id), { content: activeChapter.value.content });
+                const saveChapterGoal = () => updateDoc(doc(db, `users/${user.value.uid}/novels/main/chapters`, activeChapter.value.id), { goal: activeChapter.value.goal || 0 });
+                const saveNovelDetails = () => updateDoc(doc(db, `users/${user.value.uid}/novels/main`), { title: novel.value.title });
+                const saveCharacter = () => saveWithDebounce(doc(db, `users/${user.value.uid}/novels/main/characters`, activeCharacter.value.id), { name: activeCharacter.value.name, description: activeCharacter.value.description });
+                const saveNote = () => saveWithDebounce(doc(db, `users/${user.value.uid}/novels/main/notes`, activeNote.value.id), { title: activeNote.value.title, content: activeNote.value.content });
+                
+                const addItem = async () => {
+                    if (newItemName.value.trim() === '' || !user.value) return;
+                    const itemCollection = collection(db, 'users', user.value.uid, 'novels/main', activeTab.value);
+                    let newItem = { createdAt: new Date() };
+                    if (activeTab.value === 'chapters') newItem.title = newItemName.value;
+                    else if (activeTab.value === 'characters') newItem.name = newItemName.value;
+                    else if (activeTab.value === 'notes') newItem.title = newItemName.value;
+                    else if (activeTab.value === 'plot') {
+                        newItem.text = newItemName.value;
+                        newItem.status = plotColumns.value[0];
+                        newItem.order = getPlotPointsByColumn(newItem.status).length;
+                    }
+                    await addDoc(itemCollection, newItem);
+                    newItemName.value = '';
+                    showAddModal.value = false;
+                };
+
+                const exportNovel = (format) => {
+                    const title = novel.value.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                    const sortedChapters = [...chapters.value].sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+                    let content = `${novel.value.title}\n\n`;
+                    sortedChapters.forEach(chapter => { content += `## ${chapter.title} ##\n\n${chapter.content || ''}\n\n\n`; });
+                    if (format === 'txt') {
+                        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `${title}.txt`;
+                        link.click();
+                        URL.revokeObjectURL(link.href);
+                    } else if (format === 'pdf') {
+                        const { jsPDF } = window.jspdf;
+                        const doc = new jsPDF();
+                        doc.text(doc.splitTextToSize(content, 180), 10, 10);
+                        doc.save(`${title}.pdf`);
+                    }
+                };
+
+                // AI Methods
+                const scrollToChatBottom = () => nextTick(() => { if(aiChatContainer.value) aiChatContainer.value.scrollTop = aiChatContainer.value.scrollHeight; });
+                const sendAiPrompt = async () => {
+                    if (aiPrompt.value.trim() === '' || aiIsLoading.value) return;
+                    const userMessage = aiPrompt.value;
+                    aiConversation.value.push({ role: 'user', content: userMessage });
+                    aiPrompt.value = '';
+                    aiIsLoading.value = true;
+                    scrollToChatBottom();
+
+                    try {
+                        const response = await fetch('/api/gemini', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ prompt: userMessage })
+                        });
+                        if (!response.ok) throw new Error(`Server responded with status ${response.status}`);
+                        const result = await response.json();
+                        aiConversation.value.push({ role: 'gemini', content: result.text.replace(/\n/g, '<br>') });
+                    } catch (error) {
+                        console.error("AI Error:", error);
+                        aiConversation.value.push({ role: 'gemini', content: `<strong>Error:</strong> ${error.message}` });
+                    } finally {
+                        aiIsLoading.value = false;
+                        scrollToChatBottom();
+                    }
+                };
+                const sendChapterToAi = () => {
+                    if (!activeChapter.value?.content) return;
+                    aiPrompt.value = `Based on the following chapter text, please summarize the key events.\n\n---\n\n${activeChapter.value.content}`;
+                };
+
+                // Firebase & Listeners
+                const setupListeners = (uid) => {
+                    Object.values(unsub).forEach(u => u());
+                    const novelRef = doc(db, 'users', uid, 'novels', 'main');
+                    unsub.novel = onSnapshot(novelRef, (docSnap) => { if (docSnap.exists()) { novel.value = { ...novel.value, ...docSnap.data() }; applyTheme(novel.value.theme); } else { setDoc(novelRef, novel.value); }});
+                    ['chapters', 'characters', 'notes', 'plot'].forEach(type => {
+                        const q = query(collection(novelRef, type), orderBy('createdAt'));
+                        unsub[type] = onSnapshot(q, (snapshot) => {
+                            const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                            if (type === 'chapters') { chapters.value = items; if (!activeChapter.value && items.length) activeChapter.value = items[0]; }
+                            else if (type === 'characters') { characters.value = items; if (!activeCharacter.value && items.length) activeCharacter.value = items[0]; }
+                            else if (type === 'notes') { notes.value = items; if (!activeNote.value && items.length) activeNote.value = items[0]; }
+                            else if (type === 'plot') { plotPoints.value = items; }
+                        });
+                    });
+                };
+
+                onMounted(() => {
+                    onAuthStateChanged(auth, async (currentUser) => {
+                        if (currentUser) { user.value = currentUser; setupListeners(currentUser.uid); }
+                        else {
+                            try {
+                                await signInAnonymously(auth);
+                            } catch(err) { console.error("Anonymous sign-in failed:", err); }
+                        }
+                    });
+                });
+
+                return { novel, chapters, characters, notes, plotPoints, activeTab, activeChapter, activeCharacter, activeNote, showAddModal, newItemName, wordCount, wordCountProgress, addButtonText, modalPlaceholder, plotColumns, draggingPlotPointId, hasActiveContent, applyTheme, selectChapter, selectCharacter, selectNote, saveChapterContent, saveNovelDetails, saveCharacter, saveNote, saveChapterGoal, addItem, exportNovel, aiPrompt, aiConversation, aiIsLoading, aiChatContainer, sendAiPrompt, sendChapterToAi, getPlotPointsByColumn: (col) => plotPoints.value.filter(p => p.status === col).sort((a,b) => a.order - b.order), onDragStart: (evt, point) => { evt.dataTransfer.setData('plotPointId', point.id); draggingPlotPointId.value = point.id; }, onDrop: (evt, newStatus) => { const pointId = evt.dataTransfer.getData('plotPointId'); updateDoc(doc(db,`users/${user.value.uid}/novels/main/plot`,pointId),{status:newStatus}); draggingPlotPointId.value=null; } };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
