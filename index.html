@@ -137,11 +137,11 @@
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Email</label>
-                            <input type="email" v-model="authEmail" required class="input-field w-full px-3 py-2 rounded-md">
+                            <input type="email" v-model="authEmail" required autocomplete="email" class="input-field w-full px-3 py-2 rounded-md">
                         </div>
                         <div>
                             <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Password</label>
-                            <input type="password" v-model="authPassword" required class="input-field w-full px-3 py-2 rounded-md">
+                            <input type="password" v-model="authPassword" required autocomplete="current-password" class="input-field w-full px-3 py-2 rounded-md">
                         </div>
                         <div v-if="authError" class="text-red-500 text-sm">{{ authError }}</div>
                         <button type="submit" :disabled="isAuthLoading" class="w-full btn-primary py-2 rounded-lg font-bold transition">
@@ -156,15 +156,15 @@
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Email</label>
-                            <input type="email" v-model="authEmail" required class="input-field w-full px-3 py-2 rounded-md">
+                            <input type="email" v-model="authEmail" required autocomplete="email" class="input-field w-full px-3 py-2 rounded-md">
                         </div>
                         <div>
                             <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Password</label>
-                            <input type="password" v-model="authPassword" required class="input-field w-full px-3 py-2 rounded-md">
+                            <input type="password" v-model="authPassword" required autocomplete="new-password" class="input-field w-full px-3 py-2 rounded-md">
                         </div>
                         <div>
                             <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Confirm Password</label>
-                            <input type="password" v-model="authConfirmPassword" required class="input-field w-full px-3 py-2 rounded-md">
+                            <input type="password" v-model="authConfirmPassword" required autocomplete="new-password" class="input-field w-full px-3 py-2 rounded-md">
                         </div>
                         <div>
                             <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">I am a:</label>
@@ -272,6 +272,10 @@
                         authError.value = 'Password must be at least 6 characters';
                         return;
                     }
+                    if (!authEmail.value.includes('@')) {
+                        authError.value = 'Please enter a valid email address';
+                        return;
+                    }
                     isAuthLoading.value = true;
                     authError.value = '';
                     try {
@@ -286,13 +290,23 @@
                         showAuthModal.value = false;
                         resetAuthForm();
                     } catch (error) {
-                        authError.value = error.message;
+                        authError.value = error.code === 'auth/email-already-in-use' 
+                            ? 'Email is already registered. Try signing in instead.' 
+                            : error.message;
                     } finally {
                         isAuthLoading.value = false;
                     }
                 };
 
                 const signIn = async () => {
+                    if (!authEmail.value.includes('@')) {
+                        authError.value = 'Please enter a valid email address';
+                        return;
+                    }
+                    if (authPassword.value.length < 1) {
+                        authError.value = 'Please enter your password';
+                        return;
+                    }
                     isAuthLoading.value = true;
                     authError.value = '';
                     try {
@@ -300,7 +314,11 @@
                         showAuthModal.value = false;
                         resetAuthForm();
                     } catch (error) {
-                        authError.value = error.message;
+                        authError.value = error.code === 'auth/user-not-found' 
+                            ? 'No account found with this email. Try signing up instead.'
+                            : error.code === 'auth/wrong-password'
+                            ? 'Incorrect password. Please try again.'
+                            : error.message;
                     } finally {
                         isAuthLoading.value = false;
                     }
@@ -393,7 +411,16 @@
                 const setupListeners = (uid) => {
                     Object.values(unsub).forEach(u => u());
                     const novelRef = doc(db, 'users', uid, 'novels', 'main');
-                    unsub.novel = onSnapshot(novelRef, (docSnap) => { if (docSnap.exists()) { novel.value = { ...novel.value, ...docSnap.data() }; applyTheme(novel.value.theme); } else { setDoc(novelRef, novel.value); }});
+                    unsub.novel = onSnapshot(novelRef, (docSnap) => { 
+                        if (docSnap.exists()) { 
+                            const data = docSnap.data();
+                            novel.value = { ...novel.value, ...data }; 
+                            if (data.theme) applyTheme(data.theme);
+                        } else { 
+                            setDoc(novelRef, novel.value); 
+                            applyTheme(novel.value.theme);
+                        }
+                    });
                     ['chapters', 'characters', 'notes', 'plot'].forEach(type => {
                         const q = query(collection(novelRef, type), orderBy('createdAt'));
                         unsub[type] = onSnapshot(q, (snapshot) => {
