@@ -375,12 +375,103 @@
                                  <span><i class="fas fa-calendar mr-1"></i>Published {{ formatDate(selectedPublishedNovel.publishedAt) }}</span>
                                  <span><i class="fas fa-book mr-1"></i>{{ selectedPublishedNovel.chapters || 0 }} chapters</span>
                              </div>
+                             
+                             <!-- Book Rating Section -->
+                             <div class="mb-4 p-3 rounded-lg" :style="{backgroundColor: 'var(--bg-tertiary)'}">
+                                 <h4 class="font-semibold mb-2">Rate this Book</h4>
+                                 <div class="flex space-x-1 mb-2">
+                                     <button v-for="star in 5" :key="star" @click="rateBook(star)"
+                                             :class="star <= bookRating ? 'text-yellow-400' : 'text-gray-400'"
+                                             class="text-xl hover:text-yellow-400 transition">
+                                         <i class="fas fa-star"></i>
+                                     </button>
+                                 </div>
+                                 <p class="text-xs" :style="{color: 'var(--text-secondary)'}">Click stars to rate this book</p>
+                             </div>
+
+                             <!-- Writer Rating Section -->
+                             <div class="mb-4 p-3 rounded-lg" :style="{backgroundColor: 'var(--bg-tertiary)'}">
+                                 <h4 class="font-semibold mb-2">Rate this Writer</h4>
+                                 <div class="flex space-x-1 mb-2">
+                                     <button v-for="star in 5" :key="star" @click="rateWriter(star)"
+                                             :class="star <= writerRating ? 'text-blue-400' : 'text-gray-400'"
+                                             class="text-xl hover:text-blue-400 transition">
+                                         <i class="fas fa-star"></i>
+                                     </button>
+                                 </div>
+                                 <p class="text-xs" :style="{color: 'var(--text-secondary)'}">Rate the author's writing skills</p>
+                                 <div v-if="writerRatings.length > 0" class="mt-2 text-sm">
+                                     Average: {{ (writerRatings.reduce((sum, r) => sum + r.rating, 0) / writerRatings.length).toFixed(1) }}/5 
+                                     ({{ writerRatings.length }} {{ writerRatings.length === 1 ? 'rating' : 'ratings' }})
+                                 </div>
+                             </div>
+
+                             <!-- Reactions Section -->
+                             <div class="mb-4 p-3 rounded-lg" :style="{backgroundColor: 'var(--bg-tertiary)'}">
+                                 <h4 class="font-semibold mb-2">React to this Book</h4>
+                                 <div class="flex space-x-3">
+                                     <button @click="reactToBook('like')" class="flex items-center space-x-1 px-3 py-1 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 transition">
+                                         <i class="fas fa-thumbs-up"></i>
+                                         <span>{{ bookReactions.like || 0 }}</span>
+                                     </button>
+                                     <button @click="reactToBook('love')" class="flex items-center space-x-1 px-3 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200 transition">
+                                         <i class="fas fa-heart"></i>
+                                         <span>{{ bookReactions.love || 0 }}</span>
+                                     </button>
+                                     <button @click="reactToBook('wow')" class="flex items-center space-x-1 px-3 py-1 rounded bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition">
+                                         <i class="fas fa-surprise"></i>
+                                         <span>{{ bookReactions.wow || 0 }}</span>
+                                     </button>
+                                     <button @click="reactToBook('sad')" class="flex items-center space-x-1 px-3 py-1 rounded bg-gray-100 text-gray-800 hover:bg-gray-200 transition">
+                                         <i class="fas fa-sad-tear"></i>
+                                         <span>{{ bookReactions.sad || 0 }}</span>
+                                     </button>
+                                     <button @click="reactToBook('angry')" class="flex items-center space-x-1 px-3 py-1 rounded bg-orange-100 text-orange-800 hover:bg-orange-200 transition">
+                                         <i class="fas fa-angry"></i>
+                                         <span>{{ bookReactions.angry || 0 }}</span>
+                                     </button>
+                                 </div>
+                             </div>
+                             
                              <div v-if="selectedPublishedNovel.description" class="mb-6">
                                  <h3 class="font-semibold mb-2">Description</h3>
                                  <p class="leading-relaxed">{{ selectedPublishedNovel.description }}</p>
                              </div>
                          </div>
                      </div>
+
+                     <!-- Comments Section -->
+                     <div class="mb-6">
+                         <h3 class="text-xl font-semibold mb-4">Comments</h3>
+                         
+                         <!-- Add Comment Form -->
+                         <div class="mb-4 p-4 rounded-lg" :style="{backgroundColor: 'var(--bg-tertiary)'}">
+                             <div class="flex space-x-3">
+                                 <textarea v-model="bookComment" placeholder="Share your thoughts about this book..." 
+                                           class="input-field flex-1 px-3 py-2 rounded-md h-20 resize-none"></textarea>
+                                 <button @click="commentOnBook" :disabled="!bookComment.trim()" 
+                                         class="btn-primary px-4 py-2 rounded-lg self-end">
+                                     <i class="fas fa-paper-plane"></i>
+                                 </button>
+                             </div>
+                         </div>
+
+                         <!-- Comments List -->
+                         <div class="space-y-3 max-h-96 overflow-y-auto">
+                             <div v-for="comment in bookComments" :key="comment.id" 
+                                  class="p-4 rounded-lg border" :style="{backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border-color)'}">
+                                 <div class="flex justify-between items-start mb-2">
+                                     <div class="font-semibold">{{ comment.userName }}</div>
+                                     <div class="text-sm" :style="{color: 'var(--text-secondary)'}">{{ formatDate(comment.createdAt) }}</div>
+                                 </div>
+                                 <p class="leading-relaxed">{{ comment.comment }}</p>
+                             </div>
+                             <div v-if="bookComments.length === 0" class="text-center py-8" :style="{color: 'var(--text-secondary)'}">
+                                 No comments yet. Be the first to share your thoughts!
+                             </div>
+                         </div>
+                     </div>
+
                      <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-4">
                          <div class="flex items-center">
                              <i class="fas fa-info-circle mr-2"></i>
@@ -621,6 +712,8 @@
                 // Publishing state
                 const isPublishing = ref(false), isUploading = ref(false);
                 const publishedNovels = ref([]), selectedPublishedNovel = ref(null);
+                const bookRating = ref(0), bookComment = ref(''), bookComments = ref([]), bookReactions = ref([]);
+                const writerRating = ref(0), writerRatings = ref([]);
                 
                 let debounceTimer = null, unsub = {};
 
@@ -1033,8 +1126,161 @@
                     }
                 };
 
-                const selectPublishedNovel = (novel) => {
+                const selectPublishedNovel = async (novel) => {
                     selectedPublishedNovel.value = novel;
+                    await loadBookComments(novel.id);
+                    await loadBookReactions(novel.id);
+                    await loadWriterRatings(novel.authorId);
+                };
+
+                const loadBookComments = async (novelId) => {
+                    try {
+                        const commentsCollection = collection(db, `book-comments/${novelId}/comments`);
+                        const q = query(commentsCollection, orderBy('createdAt', 'desc'));
+                        const snapshot = await getDocs(q);
+                        const comments = [];
+                        snapshot.forEach((doc) => {
+                            comments.push({ id: doc.id, ...doc.data() });
+                        });
+                        bookComments.value = comments;
+                    } catch (error) {
+                        console.error('Error loading book comments:', error);
+                    }
+                };
+
+                const loadBookReactions = async (novelId) => {
+                    try {
+                        const reactionsDoc = await getDoc(doc(db, `book-reactions/${novelId}`));
+                        if (reactionsDoc.exists()) {
+                            bookReactions.value = reactionsDoc.data();
+                        } else {
+                            bookReactions.value = { like: 0, love: 0, wow: 0, sad: 0, angry: 0 };
+                        }
+                    } catch (error) {
+                        console.error('Error loading book reactions:', error);
+                    }
+                };
+
+                const loadWriterRatings = async (authorId) => {
+                    try {
+                        const ratingsCollection = collection(db, `writer-ratings/${authorId}/ratings`);
+                        const snapshot = await getDocs(ratingsCollection);
+                        const ratings = [];
+                        snapshot.forEach((doc) => {
+                            ratings.push({ id: doc.id, ...doc.data() });
+                        });
+                        writerRatings.value = ratings;
+                    } catch (error) {
+                        console.error('Error loading writer ratings:', error);
+                    }
+                };
+
+                const rateBook = async (rating) => {
+                    if (!user.value || !selectedPublishedNovel.value) return;
+                    
+                    try {
+                        await setDoc(doc(db, `book-ratings/${selectedPublishedNovel.value.id}/ratings/${user.value.uid}`), {
+                            rating: rating,
+                            userId: user.value.uid,
+                            userEmail: user.value.email,
+                            createdAt: new Date()
+                        });
+                        
+                        // Update average rating
+                        const ratingsSnapshot = await getDocs(collection(db, `book-ratings/${selectedPublishedNovel.value.id}/ratings`));
+                        let totalRating = 0;
+                        let count = 0;
+                        ratingsSnapshot.forEach((doc) => {
+                            totalRating += doc.data().rating;
+                            count++;
+                        });
+                        
+                        await setDoc(doc(db, `book-ratings/${selectedPublishedNovel.value.id}`), {
+                            averageRating: totalRating / count,
+                            totalRatings: count,
+                            updatedAt: new Date()
+                        });
+                        
+                        bookRating.value = rating;
+                    } catch (error) {
+                        console.error('Error rating book:', error);
+                    }
+                };
+
+                const rateWriter = async (rating) => {
+                    if (!user.value || !selectedPublishedNovel.value) return;
+                    
+                    try {
+                        await setDoc(doc(db, `writer-ratings/${selectedPublishedNovel.value.authorId}/ratings/${user.value.uid}`), {
+                            rating: rating,
+                            userId: user.value.uid,
+                            userEmail: user.value.email,
+                            novelTitle: selectedPublishedNovel.value.title,
+                            createdAt: new Date()
+                        });
+                        
+                        writerRating.value = rating;
+                        await loadWriterRatings(selectedPublishedNovel.value.authorId);
+                    } catch (error) {
+                        console.error('Error rating writer:', error);
+                    }
+                };
+
+                const reactToBook = async (reactionType) => {
+                    if (!user.value || !selectedPublishedNovel.value) return;
+                    
+                    try {
+                        // Check if user already reacted
+                        const userReactionRef = doc(db, `book-reactions/${selectedPublishedNovel.value.id}/user-reactions/${user.value.uid}`);
+                        const userReactionSnap = await getDoc(userReactionRef);
+                        
+                        let oldReaction = null;
+                        if (userReactionSnap.exists()) {
+                            oldReaction = userReactionSnap.data().reaction;
+                        }
+                        
+                        // Update or create user reaction
+                        await setDoc(userReactionRef, {
+                            reaction: reactionType,
+                            userId: user.value.uid,
+                            userEmail: user.value.email,
+                            createdAt: new Date()
+                        });
+                        
+                        // Update reaction counts
+                        const reactionsRef = doc(db, `book-reactions/${selectedPublishedNovel.value.id}`);
+                        const reactionsSnap = await getDoc(reactionsRef);
+                        let reactions = reactionsSnap.exists() ? reactionsSnap.data() : { like: 0, love: 0, wow: 0, sad: 0, angry: 0 };
+                        
+                        if (oldReaction) {
+                            reactions[oldReaction] = Math.max(0, reactions[oldReaction] - 1);
+                        }
+                        reactions[reactionType] = (reactions[reactionType] || 0) + 1;
+                        
+                        await setDoc(reactionsRef, reactions);
+                        bookReactions.value = reactions;
+                    } catch (error) {
+                        console.error('Error reacting to book:', error);
+                    }
+                };
+
+                const commentOnBook = async () => {
+                    if (!user.value || !selectedPublishedNovel.value || !bookComment.value.trim()) return;
+                    
+                    try {
+                        await addDoc(collection(db, `book-comments/${selectedPublishedNovel.value.id}/comments`), {
+                            comment: bookComment.value.trim(),
+                            userId: user.value.uid,
+                            userEmail: user.value.email,
+                            userName: user.value.displayName || user.value.email.split('@')[0],
+                            createdAt: new Date()
+                        });
+                        
+                        bookComment.value = '';
+                        await loadBookComments(selectedPublishedNovel.value.id);
+                    } catch (error) {
+                        console.error('Error commenting on book:', error);
+                    }
                 };
 
                 const upgradeToPremium = () => {
@@ -1177,12 +1423,14 @@
                     userRole, authError, isAuthLoading, resetEmailSent, userApproved, isAdmin, userProfile, pendingWriters,
                     pendingNovels, allUsers,
                     isPublishing, isUploading, publishedNovels, selectedPublishedNovel,
+                    bookRating, bookComment, bookComments, bookReactions, writerRating, writerRatings,
                     // Methods
                     applyTheme, selectChapter, selectCharacter, selectNote, saveChapterContent, saveNovelDetails, 
                     saveCharacter, saveNote, saveChapterGoal, addItem, exportNovel, 
                     signUp, signIn, logout, resetAuthForm, switchAuthMode, resetPassword, approveWriter, formatDate,
                     handleCoverUpload, publishNovel, unpublishNovel, upgradeToPremium, loadPublishedNovels, selectPublishedNovel,
                     loadPendingNovels, approveNovel, rejectNovel, removeNovel, banUser, suspendUser, unbanUser,
+                    rateBook, rateWriter, reactToBook, commentOnBook, loadBookComments, loadBookReactions, loadWriterRatings,
                     // AI & Plot
                     aiPrompt, aiConversation, aiIsLoading, aiChatContainer, sendAiPrompt, sendChapterToAi, 
                     getPlotPointsByColumn: (col) => plotPoints.value.filter(p => p.status === col).sort((a,b) => a.order - b.order), 
