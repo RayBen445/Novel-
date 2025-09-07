@@ -66,6 +66,9 @@
                 </div>
                 <span class="text-sm" :style="{color: 'var(--text-secondary)'}">{{ user?.email }}</span>
                 <span v-if="user?.displayName" class="text-xs px-2 py-1 rounded" style="background-color: var(--accent-color); color: #111827;">{{ user.displayName }}</span>
+                <span v-if="userProfile?.subscription === 'premium'" class="text-xs px-2 py-1 rounded bg-yellow-500 text-black">
+                    <i class="fas fa-crown mr-1"></i>Premium
+                </span>
             </div>
             <button @click="logout" class="btn-secondary px-4 py-2 rounded-lg transition">
                 <i class="fas fa-sign-out-alt mr-2"></i>Logout
@@ -109,6 +112,8 @@
                 <button @click="activeTab = 'chapters'" :class="['tab', {'active': activeTab === 'chapters'}]" class="py-2 text-sm font-semibold border-b-2 transition">Chapters</button>
                 <button @click="activeTab = 'characters'" :class="['tab', {'active': activeTab === 'characters'}]" class="py-2 text-sm font-semibold border-b-2 transition">Characters</button>
                 <button @click="activeTab = 'plot'" :class="['tab', {'active': activeTab === 'plot'}]" class="py-2 text-sm font-semibold border-b-2 transition">Plot</button>
+                <button @click="activeTab = 'browse'" :class="['tab', {'active': activeTab === 'browse'}]" class="py-2 text-sm font-semibold border-b-2 transition">Browse</button>
+                <button v-if="userProfile?.role === 'writer' && userApproved" @click="activeTab = 'publish'" :class="['tab', {'active': activeTab === 'publish'}]" class="py-2 text-sm font-semibold border-b-2 transition">Publish</button>
                 <button v-if="isAdmin" @click="activeTab = 'admin'" :class="['tab', {'active': activeTab === 'admin'}]" class="py-2 text-sm font-semibold border-b-2 transition">Admin</button>
                 <button @click="activeTab = 'notes'" :class="['tab', {'active': activeTab === 'notes'}]" class="py-2 text-sm font-semibold border-b-2 transition">Notes</button>
                 <button @click="activeTab = 'ai'" :class="['tab', {'active': activeTab === 'ai'}]" class="py-2 text-sm font-semibold border-b-2 transition">AI</button>
@@ -118,6 +123,62 @@
                  <div v-if="activeTab === 'chapters'"><ul class="space-y-2"><li v-for="chapter in chapters" @click="selectChapter(chapter)" :class="['list-item', {'active': activeChapter?.id === chapter.id}]" class="cursor-pointer px-4 py-2 rounded-lg transition truncate">{{ chapter.title }}</li></ul></div>
                  <div v-if="activeTab === 'characters'"><ul class="space-y-2"><li v-for="character in characters" @click="selectCharacter(character)" :class="['list-item', {'active': activeCharacter?.id === character.id}]" class="cursor-pointer px-4 py-2 rounded-lg transition truncate">{{ character.name }}</li></ul></div>
                  <div v-if="activeTab === 'plot'"><p class="text-sm p-2" :style="{color: 'var(--text-secondary)'}">Add plot points and drag them.</p></div>
+                 <div v-if="activeTab === 'browse'">
+                     <div class="text-center mb-4">
+                         <i class="fas fa-book-reader text-3xl mb-2" :style="{color: 'var(--accent-color)'}"></i>
+                         <h3 class="font-semibold">Published Novels</h3>
+                         <p class="text-sm" :style="{color: 'var(--text-secondary)'}">Discover great stories</p>
+                     </div>
+                     <div class="space-y-2 max-h-96 overflow-y-auto">
+                         <div v-for="novel in publishedNovels" :key="novel.id" 
+                              @click="selectPublishedNovel(novel)"
+                              :class="['list-item', {'active': selectedPublishedNovel?.id === novel.id}]"
+                              class="cursor-pointer px-3 py-2 rounded-lg transition">
+                             <div class="flex items-center space-x-2">
+                                 <img v-if="novel.coverUrl" :src="novel.coverUrl" 
+                                      class="w-8 h-10 object-cover rounded" :alt="novel.title">
+                                 <div class="flex-1 min-w-0">
+                                     <div class="font-semibold truncate">{{ novel.title }}</div>
+                                     <div class="text-xs truncate" :style="{color: 'var(--text-secondary)'}">
+                                         by {{ novel.authorName }}
+                                     </div>
+                                 </div>
+                             </div>
+                         </div>
+                         <div v-if="publishedNovels.length === 0" class="text-center py-8" :style="{color: 'var(--text-secondary)'}">
+                             No novels published yet
+                         </div>
+                     </div>
+                 </div>
+                 <div v-if="activeTab === 'publish'" class="space-y-4">
+                     <div class="text-center">
+                         <i class="fas fa-book text-4xl mb-2" :style="{color: 'var(--accent-color)'}"></i>
+                         <h3 class="font-semibold mb-2">Ready to Publish?</h3>
+                         <p class="text-sm mb-4" :style="{color: 'var(--text-secondary)'}">
+                             Share your novel with readers
+                         </p>
+                     </div>
+                     <div v-if="novel.coverUrl" class="text-center mb-4">
+                         <img :src="novel.coverUrl" alt="Book Cover" class="w-32 h-48 object-cover mx-auto rounded border-2" :style="{borderColor: 'var(--border-color)'}">
+                         <p class="text-sm mt-2" :style="{color: 'var(--text-secondary)'}">Current cover</p>
+                     </div>
+                     <div class="space-y-2">
+                         <label class="block text-sm font-semibold" :style="{color: 'var(--text-secondary)'}">Author Name</label>
+                         <input type="text" v-model="novel.authorName" @change="saveNovelDetails" 
+                                class="input-field w-full px-3 py-2 rounded-md" placeholder="Your name as it appears on the book">
+                     </div>
+                     <div class="space-y-2">
+                         <label class="block text-sm font-semibold" :style="{color: 'var(--text-secondary)'}">Book Cover (Optional)</label>
+                         <input type="file" @change="handleCoverUpload" accept="image/*" 
+                                class="input-field w-full px-3 py-2 rounded-md text-sm">
+                     </div>
+                     <button @click="publishNovel" :disabled="isPublishing || !novel.authorName" 
+                             class="w-full btn-primary py-2 rounded-lg font-bold transition">
+                         <i v-if="isPublishing" class="fas fa-circle-notch fa-spin mr-2"></i>
+                         <i v-else class="fas fa-upload mr-2"></i>
+                         {{ isPublishing ? 'Publishing...' : 'Publish Novel' }}
+                     </button>
+                 </div>
                  <div v-if="activeTab === 'notes'"><ul class="space-y-2"><li v-for="note in notes" @click="selectNote(note)" :class="['list-item', {'active': activeNote?.id === note.id}]" class="cursor-pointer px-4 py-2 rounded-lg transition truncate">{{ note.title }}</li></ul></div>
                  <div v-if="activeTab === 'ai'"><p class="text-sm p-2" :style="{color: 'var(--text-secondary)'}">Ask Gemini for help with your novel.</p></div>
                  <div v-if="activeTab === 'admin' && isAdmin">
@@ -146,9 +207,36 @@
                  <div v-if="activeTab === 'settings'">
                      <h3 class="text-lg font-semibold mb-3">Theme</h3>
                      <select v-model="novel.theme" @change="applyTheme(novel.theme)" class="input-field w-full rounded-md px-3 py-2 mb-6"><option value="theme-dark">Dark</option><option value="theme-light">Light</option><option value="theme-sepia">Sepia</option></select>
+                     
+                     <h3 class="text-lg font-semibold mb-3">Premium Subscription</h3>
+                     <div class="p-4 rounded-lg mb-4" :style="{backgroundColor: 'var(--bg-tertiary)'}">
+                         <div v-if="userProfile?.subscription === 'premium'" class="text-center">
+                             <i class="fas fa-crown text-2xl mb-2" :style="{color: 'var(--accent-color)'}"></i>
+                             <p class="font-semibold">Premium Member</p>
+                             <p class="text-sm" :style="{color: 'var(--text-secondary)'}">Enjoy unlimited chapters and advanced features</p>
+                         </div>
+                         <div v-else class="text-center">
+                             <i class="fas fa-star text-2xl mb-2" :style="{color: 'var(--accent-color)'}"></i>
+                             <p class="font-semibold mb-2">Upgrade to Premium</p>
+                             <ul class="text-sm text-left mb-4 space-y-1" :style="{color: 'var(--text-secondary)'}">
+                                 <li><i class="fas fa-check mr-2" :style="{color: 'var(--accent-color)'}"></i>Unlimited chapters</li>
+                                 <li><i class="fas fa-check mr-2" :style="{color: 'var(--accent-color)'}"></i>Priority AI assistance</li>
+                                 <li><i class="fas fa-check mr-2" :style="{color: 'var(--accent-color)'}"></i>Advanced export options</li>
+                                 <li><i class="fas fa-check mr-2" :style="{color: 'var(--accent-color)'}"></i>Cloud backup</li>
+                             </ul>
+                             <button @click="upgradeToPremium" class="w-full btn-primary py-2 rounded-lg font-bold">
+                                 <i class="fas fa-crown mr-2"></i>Upgrade to Premium - $9.99/month
+                             </button>
+                         </div>
+                     </div>
+                     
                      <h3 class="text-lg font-semibold mb-3">Export Novel</h3>
                      <button @click="exportNovel('txt')" class="w-full btn-secondary font-bold py-2 px-4 rounded-lg transition mb-2">Export as .txt</button>
-                     <button @click="exportNovel('pdf')" class="w-full btn-secondary font-bold py-2 px-4 rounded-lg transition">Export as .pdf</button>
+                     <button @click="exportNovel('pdf')" :disabled="userProfile?.subscription !== 'premium'" 
+                             :class="userProfile?.subscription !== 'premium' ? 'opacity-50 cursor-not-allowed' : ''"
+                             class="w-full btn-secondary font-bold py-2 px-4 rounded-lg transition">
+                         Export as .pdf {{ userProfile?.subscription !== 'premium' ? '(Premium Only)' : '' }}
+                     </button>
                 </div>
             </div>
             <button v-if="['chapters', 'characters', 'notes', 'plot'].includes(activeTab)" @click="showAddModal = true" class="mt-4 w-full btn-primary font-bold py-2 px-4 rounded-lg transition flex items-center justify-center"><i class="fas fa-plus mr-2"></i> Add New {{ addButtonText }}</button>
@@ -160,7 +248,116 @@
              <template v-if="activeTab === 'chapters' && activeChapter"><div class="flex-shrink-0"><div class="flex justify-between items-center mb-2"><h2 class="text-3xl font-bold font-serif">{{ activeChapter.title }}</h2><div :style="{color: 'var(--text-secondary)'}">{{ wordCount }} words</div></div><div class="flex items-center gap-4 mb-4"><label class="text-sm" :style="{color: 'var(--text-secondary)'}">Goal:</label><input type="number" min="0" step="100" v-model.number="activeChapter.goal" @change="saveChapterGoal" class="input-field w-24 p-1 rounded-md text-sm"><div class="w-full progress-bar-bg rounded-full h-2.5"><div class="progress-bar-fill h-2.5 rounded-full" :style="{ width: wordCountProgress + '%' }"></div></div></div></div><div class="flex-grow relative"><textarea v-model="activeChapter.content" @input="saveChapterContent" class="writing-area w-full h-full text-lg leading-relaxed p-8 rounded-lg border-2 focus:outline-none resize-none"></textarea></div></template>
              <template v-else-if="activeTab === 'characters' && activeCharacter"><h2 class="text-3xl font-bold font-serif mb-4">Character Profile</h2><div class="space-y-4"><div><label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Name</label><input type="text" v-model="activeCharacter.name" @change="saveCharacter" class="input-field w-full text-xl p-2 rounded-md"></div><div><label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Description & Backstory</label><textarea v-model="activeCharacter.description" @change="saveCharacter" class="input-field w-full h-64 p-2 rounded-md"></textarea></div></div></template>
              <template v-else-if="activeTab === 'plot'"><div class="plot-board pb-4"><div v-for="column in plotColumns" :key="column" class="plot-column" @dragover.prevent @drop="onDrop($event, column)"><h3 class="text-lg font-bold p-4 flex-shrink-0" :style="{color: 'var(--text-secondary)'}">{{ column }}</h3><div class="p-2 space-y-2 overflow-y-auto flex-grow"><div v-for="point in getPlotPointsByColumn(column)" :key="point.id" class="plot-card" draggable="true" @dragstart="onDragStart($event, point)" :class="{'dragging': draggingPlotPointId === point.id}">{{ point.text }}</div></div></div></div></template>
+             <template v-else-if="activeTab === 'browse'">
+                 <h2 class="text-3xl font-bold font-serif mb-4">Browse Published Novels</h2>
+                 <div v-if="selectedPublishedNovel" class="max-w-4xl">
+                     <div class="grid md:grid-cols-3 gap-6 mb-6">
+                         <div class="md:col-span-1">
+                             <div v-if="selectedPublishedNovel.coverUrl" class="mb-4">
+                                 <img :src="selectedPublishedNovel.coverUrl" :alt="selectedPublishedNovel.title" 
+                                      class="w-full max-w-xs mx-auto rounded-lg border-2" :style="{borderColor: 'var(--border-color)'}">
+                             </div>
+                             <div v-else class="w-full max-w-xs mx-auto h-64 flex items-center justify-center rounded-lg border-2 border-dashed mb-4" 
+                                  :style="{borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-tertiary)'}">
+                                 <i class="fas fa-book text-4xl" :style="{color: 'var(--text-secondary)'}"></i>
+                             </div>
+                         </div>
+                         <div class="md:col-span-2">
+                             <h1 class="text-4xl font-bold font-serif mb-2">{{ selectedPublishedNovel.title }}</h1>
+                             <p class="text-xl mb-4" :style="{color: 'var(--text-secondary)'}">by {{ selectedPublishedNovel.authorName }}</p>
+                             <div class="flex items-center space-x-4 mb-4 text-sm" :style="{color: 'var(--text-secondary)'}">
+                                 <span><i class="fas fa-calendar mr-1"></i>Published {{ formatDate(selectedPublishedNovel.publishedAt) }}</span>
+                                 <span><i class="fas fa-book mr-1"></i>{{ selectedPublishedNovel.chapters || 0 }} chapters</span>
+                             </div>
+                             <div v-if="selectedPublishedNovel.description" class="mb-6">
+                                 <h3 class="font-semibold mb-2">Description</h3>
+                                 <p class="leading-relaxed">{{ selectedPublishedNovel.description }}</p>
+                             </div>
+                         </div>
+                     </div>
+                     <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded mb-4">
+                         <div class="flex items-center">
+                             <i class="fas fa-info-circle mr-2"></i>
+                             <div>
+                                 <strong>Note:</strong> Full novel reading functionality would be implemented here in a complete application.
+                                 This includes chapter navigation, bookmarking, and reading progress tracking.
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+                 <div v-else class="text-center py-16">
+                     <i class="fas fa-book-open text-6xl mb-4" :style="{color: 'var(--text-secondary)'}"></i>
+                     <p class="text-xl" :style="{color: 'var(--text-secondary)'}">Select a novel to start reading</p>
+                 </div>
+             </template>
              <template v-else-if="activeTab === 'notes' && activeNote"><h2 class="text-3xl font-bold font-serif mb-4">Note</h2><div class="space-y-4 flex flex-col h-full"><div><label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Title</label><input type="text" v-model="activeNote.title" @change="saveNote" class="input-field w-full text-xl p-2 rounded-md"></div><div class="flex-grow"><label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Content</label><textarea v-model="activeNote.content" @change="saveNote" class="input-field w-full h-full p-2 rounded-md"></textarea></div></div></template>
+             <template v-else-if="activeTab === 'publish'">
+                 <h2 class="text-3xl font-bold font-serif mb-4">Publish Your Novel</h2>
+                 <div class="max-w-2xl space-y-6">
+                     <div class="grid md:grid-cols-2 gap-6">
+                         <div>
+                             <h3 class="text-xl font-semibold mb-4">Novel Details</h3>
+                             <div class="space-y-4">
+                                 <div>
+                                     <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Title</label>
+                                     <input type="text" v-model="novel.title" @change="saveNovelDetails" class="input-field w-full px-3 py-2 rounded-md">
+                                 </div>
+                                 <div>
+                                     <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Author</label>
+                                     <input type="text" v-model="novel.authorName" @change="saveNovelDetails" class="input-field w-full px-3 py-2 rounded-md">
+                                 </div>
+                                 <div>
+                                     <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Description</label>
+                                     <textarea v-model="novel.description" @change="saveNovelDetails" class="input-field w-full px-3 py-2 rounded-md h-32" placeholder="Brief description of your novel..."></textarea>
+                                 </div>
+                             </div>
+                         </div>
+                         <div>
+                             <h3 class="text-xl font-semibold mb-4">Book Cover</h3>
+                             <div class="text-center">
+                                 <div v-if="novel.coverUrl" class="mb-4">
+                                     <img :src="novel.coverUrl" alt="Book Cover" class="w-48 h-64 object-cover mx-auto rounded border-2" :style="{borderColor: 'var(--border-color)'}">
+                                 </div>
+                                 <div v-else class="w-48 h-64 mx-auto flex items-center justify-center rounded border-2 border-dashed mb-4" :style="{borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-tertiary)'}">
+                                     <div class="text-center">
+                                         <i class="fas fa-image text-4xl mb-2" :style="{color: 'var(--text-secondary)'}"></i>
+                                         <p class="text-sm" :style="{color: 'var(--text-secondary)'}">No cover image</p>
+                                     </div>
+                                 </div>
+                                 <input type="file" @change="handleCoverUpload" accept="image/*" class="input-field w-full px-3 py-2 rounded-md text-sm">
+                                 <div v-if="isUploading" class="mt-2 text-sm" :style="{color: 'var(--accent-color)'}">
+                                     <i class="fas fa-circle-notch fa-spin mr-2"></i>Uploading cover...
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                     <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded">
+                         <div class="flex items-center">
+                             <i class="fas fa-info-circle mr-2"></i>
+                             <div>
+                                 <strong>Publishing Info:</strong> Your novel will be available to all readers once published. 
+                                 Make sure all chapters are complete and proofread.
+                             </div>
+                         </div>
+                     </div>
+                     <div class="flex gap-4">
+                         <button @click="publishNovel" :disabled="isPublishing || !novel.title || !novel.authorName" 
+                                 class="flex-1 btn-primary py-3 rounded-lg font-bold transition">
+                             <i v-if="isPublishing" class="fas fa-circle-notch fa-spin mr-2"></i>
+                             <i v-else class="fas fa-upload mr-2"></i>
+                             {{ isPublishing ? 'Publishing...' : 'Publish Novel' }}
+                         </button>
+                         <button v-if="novel.published" @click="unpublishNovel" 
+                                 class="btn-secondary px-6 py-3 rounded-lg font-bold transition">
+                             <i class="fas fa-eye-slash mr-2"></i>Unpublish
+                         </button>
+                     </div>
+                     <div v-if="novel.published" class="text-center text-sm" :style="{color: 'var(--text-secondary)'}">
+                         <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                         Published on {{ formatDate(novel.publishedAt) }}
+                     </div>
+                 </div>
+             </template>
              <template v-else-if="activeTab === 'ai'"><h2 class="text-3xl font-bold font-serif mb-4 flex-shrink-0">AI Assistant</h2><div class="flex-grow overflow-y-auto space-y-4 p-4" ref="aiChatContainer"><div v-for="message in aiConversation" class="flex" :class="message.role === 'user' ? 'justify-end' : 'justify-start'"><div class="p-3 rounded-lg max-w-lg" :class="message.role === 'user' ? 'ai-chat-bubble-user' : 'ai-chat-bubble-gemini'"><div v-html="message.content"></div></div></div><div v-if="aiIsLoading" class="flex justify-start"><div class="p-3 rounded-lg ai-chat-bubble-gemini"><i class="fas fa-circle-notch fa-spin"></i> Thinking...</div></div></div><div class="flex-shrink-0 mt-4 space-y-2"><div class="flex gap-2"><input type="text" v-model="aiPrompt" @keyup.enter="sendAiPrompt" :disabled="aiIsLoading" placeholder="Ask Gemini anything..." class="input-field w-full px-4 py-2 rounded-lg"><button @click="sendAiPrompt" :disabled="aiIsLoading" class="btn-primary font-bold px-4 py-2 rounded-lg transition"><i class="fas fa-paper-plane"></i></button></div><button @click="sendChapterToAi" :disabled="!activeChapter || aiIsLoading" class="w-full btn-secondary text-sm py-2 px-4 rounded-lg transition">Use Active Chapter as Context</button></div></template>
              <template v-else-if="!hasActiveContent"><div class="flex items-center justify-center h-full"><div class="text-center" :style="{color: 'var(--text-secondary)'}"><i class="fas fa-book-open text-6xl mb-4"></i><p class="text-xl">Select an item to begin.</p></div></div></template>
         </main>
@@ -261,6 +458,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, query, orderBy, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
         // IMPORTANT: Paste your Firebase project's configuration object here.
         const firebaseConfig = {
@@ -275,13 +473,14 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const storage = getStorage(app);
 
         const { createApp, ref, onMounted, computed, watch, nextTick } = Vue;
 
         createApp({
             setup() {
                 // State
-                const user = ref(null), novel = ref({ title: 'The Last Banana', theme: 'theme-dark' });
+                const user = ref(null), novel = ref({ title: 'The Last Banana', theme: 'theme-dark', authorName: '', description: '', coverUrl: null, published: false });
                 const chapters = ref([]), characters = ref([]), notes = ref([]), plotPoints = ref([]);
                 const activeTab = ref('chapters'), activeChapter = ref(null), activeCharacter = ref(null), activeNote = ref(null);
                 const showAddModal = ref(false), newItemName = ref('');
@@ -294,6 +493,10 @@
                 const authError = ref(''), isAuthLoading = ref(false), resetEmailSent = ref(false);
                 const userApproved = ref(true), isAdmin = ref(false), userProfile = ref(null), pendingWriters = ref([]);
                 
+                // Publishing state
+                const isPublishing = ref(false), isUploading = ref(false);
+                const publishedNovels = ref([]), selectedPublishedNovel = ref(null);
+                
                 let debounceTimer = null, unsub = {};
 
                 // Computed
@@ -301,7 +504,7 @@
                 const wordCountProgress = computed(() => (!activeChapter.value || !activeChapter.value.goal) ? 0 : Math.min((wordCount.value / activeChapter.value.goal) * 100, 100));
                 const addButtonText = computed(() => activeTab.value === 'plot' ? 'Plot Point' : activeTab.value.slice(0, -1));
                 const modalPlaceholder = computed(() => ({ chapters: 'Chapter Title', characters: 'Character Name', notes: 'Note Title', plot: 'Plot Point Description' })[activeTab.value] || '');
-                const hasActiveContent = computed(() => (activeTab.value === 'chapters' && activeChapter.value) || (activeTab.value === 'characters' && activeCharacter.value) || (activeTab.value === 'notes' && activeNote.value) || ['plot', 'ai', 'settings'].includes(activeTab.value));
+                const hasActiveContent = computed(() => (activeTab.value === 'chapters' && activeChapter.value) || (activeTab.value === 'characters' && activeCharacter.value) || (activeTab.value === 'notes' && activeNote.value) || ['plot', 'ai', 'settings', 'publish', 'browse'].includes(activeTab.value));
 
                 // Methods
                 const applyTheme = (theme) => { document.documentElement.className = theme; if (user.value) updateDoc(doc(db, `users/${user.value.uid}/novels/main`), { theme }); };
@@ -357,6 +560,7 @@
                             role: userRole.value,
                             approved: userRole.value === 'reader' ? true : false, // Readers auto-approved, writers need approval
                             approvedBy: userRole.value === 'reader' ? 'auto' : null,
+                            subscription: 'free', // Default subscription
                             createdAt: new Date()
                         });
                         showAuthModal.value = false;
@@ -477,6 +681,73 @@
                     }
                 };
 
+                const handleCoverUpload = async (event) => {
+                    const file = event.target.files[0];
+                    if (!file || !user.value) return;
+                    
+                    isUploading.value = true;
+                    try {
+                        const imageRef = storageRef(storage, `covers/${user.value.uid}/${file.name}`);
+                        const snapshot = await uploadBytes(imageRef, file);
+                        const downloadURL = await getDownloadURL(snapshot.ref);
+                        
+                        novel.value.coverUrl = downloadURL;
+                        await updateDoc(doc(db, `users/${user.value.uid}/novels/main`), { coverUrl: downloadURL });
+                    } catch (error) {
+                        console.error('Error uploading cover:', error);
+                    } finally {
+                        isUploading.value = false;
+                    }
+                };
+
+                const publishNovel = async () => {
+                    if (!user.value || !novel.value.title || !novel.value.authorName) return;
+                    
+                    isPublishing.value = true;
+                    try {
+                        const publishData = {
+                            published: true,
+                            publishedAt: new Date(),
+                            title: novel.value.title,
+                            authorName: novel.value.authorName,
+                            description: novel.value.description || '',
+                            coverUrl: novel.value.coverUrl || null,
+                            authorId: user.value.uid,
+                            authorEmail: user.value.email
+                        };
+                        
+                        // Update the novel document
+                        await updateDoc(doc(db, `users/${user.value.uid}/novels/main`), publishData);
+                        
+                        // Create a public novel entry
+                        await setDoc(doc(db, `published-novels/${user.value.uid}`), {
+                            ...publishData,
+                            chapters: chapters.value.length,
+                            updatedAt: new Date()
+                        });
+                        
+                        novel.value = { ...novel.value, ...publishData };
+                    } catch (error) {
+                        console.error('Error publishing novel:', error);
+                    } finally {
+                        isPublishing.value = false;
+                    }
+                };
+
+                const unpublishNovel = async () => {
+                    if (!user.value) return;
+                    
+                    try {
+                        await updateDoc(doc(db, `users/${user.value.uid}/novels/main`), { 
+                            published: false,
+                            unpublishedAt: new Date()
+                        });
+                        novel.value.published = false;
+                    } catch (error) {
+                        console.error('Error unpublishing novel:', error);
+                    }
+                };
+
                 const formatDate = (timestamp) => {
                     if (!timestamp) return '';
                     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -488,7 +759,56 @@
                     resetAuthForm();
                 };
 
+                const loadPublishedNovels = async () => {
+                    try {
+                        const publishedCollection = collection(db, 'published-novels');
+                        const snapshot = await getDocs(publishedCollection);
+                        const novels = [];
+                        snapshot.forEach((doc) => {
+                            novels.push({ id: doc.id, ...doc.data() });
+                        });
+                        publishedNovels.value = novels.sort((a, b) => (b.publishedAt?.seconds || 0) - (a.publishedAt?.seconds || 0));
+                    } catch (error) {
+                        console.error('Error loading published novels:', error);
+                    }
+                };
+
+                const selectPublishedNovel = (novel) => {
+                    selectedPublishedNovel.value = novel;
+                };
+
+                const upgradeToPremium = async () => {
+                    // In a real app, this would integrate with a payment processor like Stripe
+                    // For now, we'll simulate the upgrade
+                    if (!user.value) return;
+                    
+                    try {
+                        await updateDoc(doc(db, `users/${user.value.uid}`), {
+                            subscription: 'premium',
+                            subscriptionDate: new Date(),
+                            subscriptionStatus: 'active'
+                        });
+                        
+                        // Update local user profile
+                        if (userProfile.value) {
+                            userProfile.value.subscription = 'premium';
+                            userProfile.value.subscriptionDate = new Date();
+                            userProfile.value.subscriptionStatus = 'active';
+                        }
+                        
+                        console.log('Upgraded to premium successfully');
+                    } catch (error) {
+                        console.error('Error upgrading to premium:', error);
+                    }
+                };
+
                 const exportNovel = (format) => {
+                    // Check premium requirement for PDF export
+                    if (format === 'pdf' && userProfile.value?.subscription !== 'premium') {
+                        console.log('PDF export requires premium subscription');
+                        return;
+                    }
+                    
                     const title = novel.value.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
                     const sortedChapters = [...chapters.value].sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
                     let content = `${novel.value.title}\n\n`;
@@ -589,6 +909,9 @@
                                 loadPendingWriters();
                             }
                             
+                            // Load published novels for browsing
+                            loadPublishedNovels();
+                            
                             setupListeners(currentUser.uid);
                         } else if (!currentUser) {
                             isAuthenticated.value = false;
@@ -608,10 +931,12 @@
                     // Authentication
                     user, isAuthenticated, showAuthModal, authMode, authEmail, authPassword, authConfirmPassword, 
                     userRole, authError, isAuthLoading, resetEmailSent, userApproved, isAdmin, userProfile, pendingWriters,
+                    isPublishing, isUploading, publishedNovels, selectedPublishedNovel,
                     // Methods
                     applyTheme, selectChapter, selectCharacter, selectNote, saveChapterContent, saveNovelDetails, 
                     saveCharacter, saveNote, saveChapterGoal, addItem, exportNovel, 
                     signUp, signIn, logout, resetAuthForm, switchAuthMode, resetPassword, approveWriter, formatDate,
+                    handleCoverUpload, publishNovel, unpublishNovel, upgradeToPremium, loadPublishedNovels, selectPublishedNovel,
                     // AI & Plot
                     aiPrompt, aiConversation, aiIsLoading, aiChatContainer, sendAiPrompt, sendChapterToAi, 
                     getPlotPointsByColumn: (col) => plotPoints.value.filter(p => p.status === col).sort((a,b) => a.order - b.order), 
