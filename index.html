@@ -175,32 +175,138 @@
                      <button @click="publishNovel" :disabled="isPublishing || !novel.authorName" 
                              class="w-full btn-primary py-2 rounded-lg font-bold transition">
                          <i v-if="isPublishing" class="fas fa-circle-notch fa-spin mr-2"></i>
-                         <i v-else class="fas fa-upload mr-2"></i>
-                         {{ isPublishing ? 'Publishing...' : 'Publish Novel' }}
+                         <i v-else class="fas fa-paper-plane mr-2"></i>
+                         {{ isPublishing ? 'Submitting...' : 'Submit for Approval' }}
                      </button>
                  </div>
                  <div v-if="activeTab === 'notes'"><ul class="space-y-2"><li v-for="note in notes" @click="selectNote(note)" :class="['list-item', {'active': activeNote?.id === note.id}]" class="cursor-pointer px-4 py-2 rounded-lg transition truncate">{{ note.title }}</li></ul></div>
                  <div v-if="activeTab === 'ai'"><p class="text-sm p-2" :style="{color: 'var(--text-secondary)'}">Ask Gemini for help with your novel.</p></div>
                  <div v-if="activeTab === 'admin' && isAdmin">
-                     <h3 class="text-lg font-semibold mb-3">Pending Writers</h3>
-                     <div class="space-y-2 max-h-96 overflow-y-auto">
-                         <div v-for="writer in pendingWriters" :key="writer.id" 
-                              class="p-3 rounded-lg border" :style="{backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)'}">
-                             <div class="flex justify-between items-center">
-                                 <div>
-                                     <div class="font-semibold">{{ writer.email }}</div>
-                                     <div class="text-sm" :style="{color: 'var(--text-secondary)'}">
-                                         Registered: {{ formatDate(writer.createdAt) }}
+                     <div class="space-y-6">
+                         <!-- Pending Writers Section -->
+                         <div>
+                             <h3 class="text-lg font-semibold mb-3">Pending Writers</h3>
+                             <div class="space-y-2 max-h-96 overflow-y-auto">
+                                 <div v-for="writer in pendingWriters" :key="writer.id" 
+                                      class="p-3 rounded-lg border" :style="{backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)'}">
+                                     <div class="flex justify-between items-center">
+                                         <div>
+                                             <div class="font-semibold">{{ writer.email }}</div>
+                                             <div class="text-sm" :style="{color: 'var(--text-secondary)'}">
+                                                 Registered: {{ formatDate(writer.createdAt) }}
+                                             </div>
+                                         </div>
+                                         <button @click="approveWriter(writer.id)" 
+                                                 class="btn-primary px-3 py-1 text-sm rounded transition">
+                                             Approve
+                                         </button>
                                      </div>
                                  </div>
-                                 <button @click="approveWriter(writer.id)" 
-                                         class="btn-primary px-3 py-1 text-sm rounded transition">
-                                     Approve
-                                 </button>
+                                 <div v-if="pendingWriters.length === 0" class="text-center py-4" :style="{color: 'var(--text-secondary)'}">
+                                     No pending writers to approve
+                                 </div>
                              </div>
                          </div>
-                         <div v-if="pendingWriters.length === 0" class="text-center py-8" :style="{color: 'var(--text-secondary)'}">
-                             No pending writers to approve
+
+                         <!-- Pending Novels Section -->
+                         <div>
+                             <h3 class="text-lg font-semibold mb-3">Pending Novels</h3>
+                             <div class="space-y-3 max-h-96 overflow-y-auto">
+                                 <div v-for="novel in pendingNovels" :key="novel.id" 
+                                      class="p-4 rounded-lg border" :style="{backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)'}">
+                                     <div class="flex justify-between items-start">
+                                         <div class="flex-1">
+                                             <div class="flex items-center space-x-3 mb-2">
+                                                 <img v-if="novel.coverUrl" :src="novel.coverUrl" 
+                                                      class="w-12 h-16 object-cover rounded" :alt="novel.title">
+                                                 <div>
+                                                     <div class="font-semibold text-lg">{{ novel.title }}</div>
+                                                     <div class="text-sm" :style="{color: 'var(--text-secondary)'}">
+                                                         by {{ novel.authorName }} ({{ novel.authorEmail }})
+                                                     </div>
+                                                     <div class="text-xs" :style="{color: 'var(--text-secondary)'}">
+                                                         Submitted: {{ formatDate(novel.submittedAt) }} • {{ novel.chapters || 0 }} chapters
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                             <p v-if="novel.description" class="text-sm mb-3" :style="{color: 'var(--text-secondary)'}">{{ novel.description }}</p>
+                                         </div>
+                                         <div class="flex space-x-2 ml-4">
+                                             <button @click="approveNovel(novel)" 
+                                                     class="btn-primary px-3 py-1 text-sm rounded transition">
+                                                 <i class="fas fa-check mr-1"></i>Approve
+                                             </button>
+                                             <button @click="rejectNovel(novel)" 
+                                                     class="bg-red-600 text-white px-3 py-1 text-sm rounded transition hover:bg-red-700">
+                                                 <i class="fas fa-times mr-1"></i>Reject
+                                             </button>
+                                         </div>
+                                     </div>
+                                 </div>
+                                 <div v-if="pendingNovels.length === 0" class="text-center py-4" :style="{color: 'var(--text-secondary)'}">
+                                     No novels pending approval
+                                 </div>
+                             </div>
+                         </div>
+
+                         <!-- User Management Section -->
+                         <div>
+                             <h3 class="text-lg font-semibold mb-3">User Management</h3>
+                             <div class="space-y-2 max-h-96 overflow-y-auto">
+                                 <div v-for="userItem in allUsers.filter(u => u.email !== user?.email)" :key="userItem.id" 
+                                      class="p-3 rounded-lg border" :style="{backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)'}">
+                                     <div class="flex justify-between items-center">
+                                         <div>
+                                             <div class="font-semibold">{{ userItem.email }}</div>
+                                             <div class="text-sm" :style="{color: 'var(--text-secondary)'}">
+                                                 Role: {{ userItem.role || 'Unknown' }}
+                                                 <span v-if="userItem.banned" class="text-red-500 ml-2">[BANNED]</span>
+                                                 <span v-if="userItem.suspended" class="text-orange-500 ml-2">[SUSPENDED]</span>
+                                                 <span v-if="!userItem.approved && userItem.role === 'writer'" class="text-yellow-500 ml-2">[PENDING]</span>
+                                             </div>
+                                         </div>
+                                         <div class="flex space-x-1">
+                                             <button v-if="userItem.banned" @click="unbanUser(userItem.id)" 
+                                                     class="btn-primary px-2 py-1 text-xs rounded transition">
+                                                 Unban
+                                             </button>
+                                             <button v-if="!userItem.banned" @click="banUser(userItem.id)" 
+                                                     class="bg-red-600 text-white px-2 py-1 text-xs rounded transition hover:bg-red-700">
+                                                 Ban
+                                             </button>
+                                             <button v-if="!userItem.suspended" @click="suspendUser(userItem.id)" 
+                                                     class="bg-orange-600 text-white px-2 py-1 text-xs rounded transition hover:bg-orange-700">
+                                                 Suspend
+                                             </button>
+                                         </div>
+                                     </div>
+                                 </div>
+                             </div>
+                         </div>
+
+                         <!-- Published Novels Management -->
+                         <div>
+                             <h3 class="text-lg font-semibold mb-3">Published Novels Management</h3>
+                             <div class="space-y-2 max-h-96 overflow-y-auto">
+                                 <div v-for="novel in publishedNovels" :key="novel.id" 
+                                      class="p-3 rounded-lg border" :style="{backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)'}">
+                                     <div class="flex justify-between items-center">
+                                         <div>
+                                             <div class="font-semibold">{{ novel.title }}</div>
+                                             <div class="text-sm" :style="{color: 'var(--text-secondary)'}">
+                                                 by {{ novel.authorName }} ({{ novel.authorEmail }})
+                                             </div>
+                                         </div>
+                                         <button @click="removeNovel(novel.id)" 
+                                                 class="bg-red-600 text-white px-3 py-1 text-sm rounded transition hover:bg-red-700">
+                                             <i class="fas fa-trash mr-1"></i>Remove
+                                         </button>
+                                     </div>
+                                 </div>
+                                 <div v-if="publishedNovels.length === 0" class="text-center py-4" :style="{color: 'var(--text-secondary)'}">
+                                     No published novels
+                                 </div>
+                             </div>
                          </div>
                      </div>
                  </div>
@@ -225,7 +331,7 @@
                                  <li><i class="fas fa-check mr-2" :style="{color: 'var(--accent-color)'}"></i>Cloud backup</li>
                              </ul>
                              <button @click="upgradeToPremium" class="w-full btn-primary py-2 rounded-lg font-bold">
-                                 <i class="fas fa-crown mr-2"></i>Upgrade to Premium - $9.99/month
+                                 <i class="fab fa-whatsapp mr-2"></i>Contact us on WhatsApp - $9.99/month
                              </button>
                          </div>
                      </div>
@@ -294,6 +400,24 @@
              <template v-else-if="activeTab === 'publish'">
                  <h2 class="text-3xl font-bold font-serif mb-4">Publish Your Novel</h2>
                  <div class="max-w-2xl space-y-6">
+                     <!-- Novel Status Display -->
+                     <div v-if="novel.status" class="p-4 rounded-lg" :class="{
+                         'bg-yellow-100 border border-yellow-400 text-yellow-800': novel.status === 'pending',
+                         'bg-green-100 border border-green-400 text-green-800': novel.status === 'approved',
+                         'bg-red-100 border border-red-400 text-red-800': novel.status === 'rejected',
+                         'bg-gray-100 border border-gray-400 text-gray-800': novel.status === 'removed'
+                     }">
+                         <div class="flex items-center">
+                             <i class="fas fa-info-circle mr-2"></i>
+                             <div>
+                                 <strong>Status:</strong> 
+                                 <span v-if="novel.status === 'pending'">Your novel is pending admin approval</span>
+                                 <span v-if="novel.status === 'approved'">Your novel has been approved and is now public</span>
+                                 <span v-if="novel.status === 'rejected'">Your novel was rejected. Please make improvements and resubmit</span>
+                                 <span v-if="novel.status === 'removed'">Your novel has been removed by admin</span>
+                             </div>
+                         </div>
+                     </div>
                      <div class="grid md:grid-cols-2 gap-6">
                          <div>
                              <h3 class="text-xl font-semibold mb-4">Novel Details</h3>
@@ -335,8 +459,8 @@
                          <div class="flex items-center">
                              <i class="fas fa-info-circle mr-2"></i>
                              <div>
-                                 <strong>Publishing Info:</strong> Your novel will be available to all readers once published. 
-                                 Make sure all chapters are complete and proofread.
+                                 <strong>Publishing Info:</strong> Your novel will be submitted for admin approval. 
+                                 Once approved, it will be available to all readers. Make sure all chapters are complete and proofread.
                              </div>
                          </div>
                      </div>
@@ -344,8 +468,8 @@
                          <button @click="publishNovel" :disabled="isPublishing || !novel.title || !novel.authorName" 
                                  class="flex-1 btn-primary py-3 rounded-lg font-bold transition">
                              <i v-if="isPublishing" class="fas fa-circle-notch fa-spin mr-2"></i>
-                             <i v-else class="fas fa-upload mr-2"></i>
-                             {{ isPublishing ? 'Publishing...' : 'Publish Novel' }}
+                             <i v-else class="fas fa-paper-plane mr-2"></i>
+                             {{ isPublishing ? 'Submitting...' : 'Submit for Approval' }}
                          </button>
                          <button v-if="novel.published" @click="unpublishNovel" 
                                  class="btn-secondary px-6 py-3 rounded-lg font-bold transition">
@@ -457,7 +581,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, query, orderBy, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, query, orderBy, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
         // IMPORTANT: Paste your Firebase project's configuration object here.
@@ -492,6 +616,7 @@
                 const authEmail = ref(''), authPassword = ref(''), authConfirmPassword = ref(''), userRole = ref('writer');
                 const authError = ref(''), isAuthLoading = ref(false), resetEmailSent = ref(false);
                 const userApproved = ref(true), isAdmin = ref(false), userProfile = ref(null), pendingWriters = ref([]);
+                const pendingNovels = ref([]), allUsers = ref([]);
                 
                 // Publishing state
                 const isPublishing = ref(false), isUploading = ref(false);
@@ -669,15 +794,146 @@
                         const q = query(usersCollection);
                         const snapshot = await getDocs(q);
                         const writers = [];
+                        const users = [];
                         snapshot.forEach((doc) => {
                             const data = doc.data();
+                            users.push({ id: doc.id, ...data });
                             if (data.role === 'writer' && !data.approved) {
                                 writers.push({ id: doc.id, ...data });
                             }
                         });
                         pendingWriters.value = writers;
+                        allUsers.value = users;
                     } catch (error) {
                         console.error('Error loading pending writers:', error);
+                    }
+                };
+
+                const loadPendingNovels = async () => {
+                    if (!isAdmin.value) return;
+                    try {
+                        const novelsCollection = collection(db, 'pending-novels');
+                        const snapshot = await getDocs(novelsCollection);
+                        const novels = [];
+                        snapshot.forEach((doc) => {
+                            novels.push({ id: doc.id, ...doc.data() });
+                        });
+                        pendingNovels.value = novels.sort((a, b) => (b.submittedAt?.seconds || 0) - (a.submittedAt?.seconds || 0));
+                    } catch (error) {
+                        console.error('Error loading pending novels:', error);
+                    }
+                };
+
+                const approveNovel = async (novelData) => {
+                    try {
+                        // Move to published novels
+                        await setDoc(doc(db, `published-novels/${novelData.authorId}`), {
+                            ...novelData,
+                            published: true,
+                            approved: true,
+                            approvedBy: user.value.email,
+                            approvedAt: new Date(),
+                            status: 'approved'
+                        });
+                        
+                        // Update user's novel document
+                        await updateDoc(doc(db, `users/${novelData.authorId}/novels/main`), {
+                            published: true,
+                            approved: true,
+                            approvedBy: user.value.email,
+                            approvedAt: new Date(),
+                            status: 'approved'
+                        });
+                        
+                        // Remove from pending
+                        await deleteDoc(doc(db, `pending-novels/${novelData.authorId}`));
+                        
+                        loadPendingNovels();
+                        loadPublishedNovels();
+                    } catch (error) {
+                        console.error('Error approving novel:', error);
+                    }
+                };
+
+                const rejectNovel = async (novelData) => {
+                    try {
+                        // Update user's novel document
+                        await updateDoc(doc(db, `users/${novelData.authorId}/novels/main`), {
+                            published: false,
+                            approved: false,
+                            rejectedBy: user.value.email,
+                            rejectedAt: new Date(),
+                            status: 'rejected'
+                        });
+                        
+                        // Remove from pending
+                        await deleteDoc(doc(db, `pending-novels/${novelData.authorId}`));
+                        
+                        loadPendingNovels();
+                    } catch (error) {
+                        console.error('Error rejecting novel:', error);
+                    }
+                };
+
+                const removeNovel = async (novelId) => {
+                    try {
+                        // Remove from published novels
+                        await deleteDoc(doc(db, `published-novels/${novelId}`));
+                        
+                        // Update user's novel document
+                        await updateDoc(doc(db, `users/${novelId}/novels/main`), {
+                            published: false,
+                            removed: true,
+                            removedBy: user.value.email,
+                            removedAt: new Date(),
+                            status: 'removed'
+                        });
+                        
+                        loadPublishedNovels();
+                    } catch (error) {
+                        console.error('Error removing novel:', error);
+                    }
+                };
+
+                const banUser = async (userId) => {
+                    try {
+                        await updateDoc(doc(db, `users/${userId}`), {
+                            banned: true,
+                            bannedBy: user.value.email,
+                            bannedAt: new Date(),
+                            status: 'banned'
+                        });
+                        loadPendingWriters();
+                    } catch (error) {
+                        console.error('Error banning user:', error);
+                    }
+                };
+
+                const suspendUser = async (userId) => {
+                    try {
+                        await updateDoc(doc(db, `users/${userId}`), {
+                            suspended: true,
+                            suspendedBy: user.value.email,
+                            suspendedAt: new Date(),
+                            status: 'suspended'
+                        });
+                        loadPendingWriters();
+                    } catch (error) {
+                        console.error('Error suspending user:', error);
+                    }
+                };
+
+                const unbanUser = async (userId) => {
+                    try {
+                        await updateDoc(doc(db, `users/${userId}`), {
+                            banned: false,
+                            unbannedBy: user.value.email,
+                            unbannedAt: new Date(),
+                            status: 'active'
+                        });
+                        loadPendingWriters();
+                    } catch (error) {
+                        console.error('Error unbanning user:', error);
                     }
                 };
 
@@ -706,29 +962,33 @@
                     isPublishing.value = true;
                     try {
                         const publishData = {
-                            published: true,
+                            published: false, // Initially not published, pending admin approval
                             publishedAt: new Date(),
                             title: novel.value.title,
                             authorName: novel.value.authorName,
                             description: novel.value.description || '',
                             coverUrl: novel.value.coverUrl || null,
                             authorId: user.value.uid,
-                            authorEmail: user.value.email
+                            authorEmail: user.value.email,
+                            status: 'pending', // Add status for admin approval
+                            approved: false,
+                            approvedBy: null,
+                            approvedAt: null
                         };
                         
                         // Update the novel document
                         await updateDoc(doc(db, `users/${user.value.uid}/novels/main`), publishData);
                         
-                        // Create a public novel entry
-                        await setDoc(doc(db, `published-novels/${user.value.uid}`), {
+                        // Create a pending novel entry for admin review
+                        await setDoc(doc(db, `pending-novels/${user.value.uid}`), {
                             ...publishData,
                             chapters: chapters.value.length,
-                            updatedAt: new Date()
+                            submittedAt: new Date()
                         });
                         
                         novel.value = { ...novel.value, ...publishData };
                     } catch (error) {
-                        console.error('Error publishing novel:', error);
+                        console.error('Error submitting novel for approval:', error);
                     } finally {
                         isPublishing.value = false;
                     }
@@ -777,29 +1037,12 @@
                     selectedPublishedNovel.value = novel;
                 };
 
-                const upgradeToPremium = async () => {
-                    // In a real app, this would integrate with a payment processor like Stripe
-                    // For now, we'll simulate the upgrade
-                    if (!user.value) return;
-                    
-                    try {
-                        await updateDoc(doc(db, `users/${user.value.uid}`), {
-                            subscription: 'premium',
-                            subscriptionDate: new Date(),
-                            subscriptionStatus: 'active'
-                        });
-                        
-                        // Update local user profile
-                        if (userProfile.value) {
-                            userProfile.value.subscription = 'premium';
-                            userProfile.value.subscriptionDate = new Date();
-                            userProfile.value.subscriptionStatus = 'active';
-                        }
-                        
-                        console.log('Upgraded to premium successfully');
-                    } catch (error) {
-                        console.error('Error upgrading to premium:', error);
-                    }
+                const upgradeToPremium = () => {
+                    // Redirect to WhatsApp with predefined message
+                    const phoneNumber = '2348075614248';
+                    const message = `Hi! I'm interested in upgrading to Premium subscription for Novel Weaver. My email is ${user.value?.email}. Please help me with the subscription process.`;
+                    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+                    window.open(whatsappUrl, '_blank');
                 };
 
                 const exportNovel = (format) => {
@@ -907,6 +1150,7 @@
                             // Load pending writers if admin
                             if (isAdmin.value) {
                                 loadPendingWriters();
+                                loadPendingNovels();
                             }
                             
                             // Load published novels for browsing
@@ -931,12 +1175,14 @@
                     // Authentication
                     user, isAuthenticated, showAuthModal, authMode, authEmail, authPassword, authConfirmPassword, 
                     userRole, authError, isAuthLoading, resetEmailSent, userApproved, isAdmin, userProfile, pendingWriters,
+                    pendingNovels, allUsers,
                     isPublishing, isUploading, publishedNovels, selectedPublishedNovel,
                     // Methods
                     applyTheme, selectChapter, selectCharacter, selectNote, saveChapterContent, saveNovelDetails, 
                     saveCharacter, saveNote, saveChapterGoal, addItem, exportNovel, 
                     signUp, signIn, logout, resetAuthForm, switchAuthMode, resetPassword, approveWriter, formatDate,
                     handleCoverUpload, publishNovel, unpublishNovel, upgradeToPremium, loadPublishedNovels, selectPublishedNovel,
+                    loadPendingNovels, approveNovel, rejectNovel, removeNovel, banUser, suspendUser, unbanUser,
                     // AI & Plot
                     aiPrompt, aiConversation, aiIsLoading, aiChatContainer, sendAiPrompt, sendChapterToAi, 
                     getPlotPointsByColumn: (col) => plotPoints.value.filter(p => p.status === col).sort((a,b) => a.order - b.order), 
