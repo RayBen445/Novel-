@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Boundary Demo - Novel Weaver</title>
+    <style>
+        :root {
+            --bg-primary: #111827; --bg-secondary: #1f2937; --bg-tertiary: #374151;
+            --text-primary: #f3f4f6; --text-secondary: #9ca3af; --border-color: #4b5563;
+            --accent-color: #f59e0b; --accent-hover: #d97706;
+        }
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: var(--bg-primary); 
+            color: var(--text-primary); 
+            margin: 0;
+            padding: 2rem;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .btn-primary { 
+            background-color: var(--accent-color); 
+            color: #111827; 
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 0.5rem;
+        }
+        .btn-primary:hover { background-color: var(--accent-hover); }
+        .btn-secondary { 
+            background-color: var(--bg-tertiary); 
+            color: var(--text-primary); 
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 0.5rem;
+        }
+        .btn-secondary:hover { background-color: var(--border-color); }
+        .error-boundary {
+            background-color: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+            margin: 2rem 0;
+            text-align: center;
+        }
+        .error-details {
+            background-color: var(--bg-tertiary);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+            text-align: left;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        [v-cloak] { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="app" v-cloak>
+        <!-- Error Boundary Fallback UI -->
+        <div v-if="hasError" class="error-boundary">
+            <div>
+                <i style="font-size: 3rem; color: var(--accent-color);">⚠️</i>
+                <h1 style="color: var(--accent-color); margin: 1rem 0;">Oops! Something went wrong</h1>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                    We encountered an error while rendering this part of the application. 
+                    Don't worry - your data is safe and we can try to recover.
+                </p>
+                
+                <!-- Error Actions -->
+                <div style="margin-bottom: 2rem;">
+                    <button @click="recoverFromError" class="btn-primary">
+                        🔄 Try Again
+                    </button>
+                    <button @click="window.location.reload()" class="btn-secondary">
+                        ♻️ Refresh Page
+                    </button>
+                    <button @click="toggleErrorDetails" class="btn-secondary">
+                        🐛 {{ showErrorDetails ? 'Hide' : 'Show' }} Details
+                    </button>
+                </div>
+                
+                <!-- Error Details (Collapsible) -->
+                <div v-if="showErrorDetails && errorDetails" class="error-details">
+                    <h3>🔧 Debug Information</h3>
+                    <p><strong>Error:</strong> {{ errorDetails.message }}</p>
+                    <p><strong>Component:</strong> {{ errorDetails.component }}</p>
+                    <p><strong>Time:</strong> {{ errorDetails.timestamp }}</p>
+                    <p><strong>Context:</strong> {{ errorInfo }}</p>
+                    
+                    <div style="margin-top: 1rem; padding: 1rem; background-color: var(--bg-primary); border-radius: 0.25rem;">
+                        <h4 style="color: var(--accent-color);">💡 Troubleshooting Tips:</h4>
+                        <ul style="text-align: left; color: var(--text-secondary);">
+                            <li>Check your internet connection</li>
+                            <li>Verify all external resources are accessible</li>
+                            <li>Clear browser cache and reload</li>
+                            <li>Check browser console for additional errors</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Normal Application Content -->
+        <template v-if="!hasError">
+            <div class="container">
+                <h1>🛡️ Error Boundary Demo - Novel Weaver</h1>
+                
+                <div style="background-color: var(--bg-secondary); padding: 1.5rem; border-radius: 0.5rem; margin: 2rem 0;">
+                    <h2>Test Error Boundaries</h2>
+                    <p>Click the buttons below to trigger different types of errors and see how the error boundary handles them:</p>
+                    
+                    <button @click="triggerRenderError" class="btn-primary">
+                        💥 Trigger Render Error
+                    </button>
+                    <button @click="triggerAsyncError" class="btn-secondary">
+                        ⚡ Trigger Async Error
+                    </button>
+                    <button @click="triggerComponentError" class="btn-secondary">
+                        🔧 Trigger Component Error
+                    </button>
+                </div>
+
+                <div style="background-color: var(--bg-secondary); padding: 1.5rem; border-radius: 0.5rem; margin: 2rem 0;">
+                    <h2>✅ Working Features</h2>
+                    <p>These features are working normally:</p>
+                    <ul>
+                        <li>Error boundary state management: {{ hasError ? '❌ Error State' : '✅ Normal State' }}</li>
+                        <li>Vue reactivity: {{ counter }} (click to test: <button @click="counter++" class="btn-primary" style="padding: 0.25rem 0.5rem;">+</button>)</li>
+                        <li>Event handling: {{ lastClicked || 'None' }}</li>
+                        <li>Conditional rendering: Working</li>
+                    </ul>
+                </div>
+
+                <!-- Test component that might error -->
+                <error-prone-component v-if="showErrorComponent" @error="handleComponentError"></error-prone-component>
+            </div>
+        </template>
+    </div>
+
+    <!-- Use Vue from CDN with fallback -->
+    <script>
+        // Check if Vue loaded, provide fallback
+        if (typeof Vue === 'undefined') {
+            console.error('❌ Vue.js failed to load from CDN');
+            document.getElementById('app').innerHTML = `
+                <div style="padding: 2rem; background: #dc2626; color: white; text-align: center;">
+                    <h1>⚠️ Application Failed to Load</h1>
+                    <p>Vue.js library could not be loaded. This demonstrates how error boundaries help in production.</p>
+                    <p>In a real deployment, this would be caught by the error boundary system.</p>
+                </div>
+            `;
+        } else {
+            console.log('✅ Vue.js loaded successfully');
+            
+            const { createApp, ref } = Vue;
+            
+            const app = createApp({
+                setup() {
+                    // Error Boundary State
+                    const hasError = ref(false);
+                    const errorInfo = ref(null);
+                    const errorDetails = ref(null);
+                    const showErrorDetails = ref(false);
+                    
+                    // Demo state
+                    const counter = ref(0);
+                    const lastClicked = ref('');
+                    const showErrorComponent = ref(false);
+                    
+                    // Error handling methods
+                    const handleError = (error, instance, info) => {
+                        console.error('🚨 Error Boundary Caught:', { error, instance, info });
+                        
+                        hasError.value = true;
+                        errorInfo.value = info;
+                        errorDetails.value = {
+                            message: error.message,
+                            stack: error.stack,
+                            component: instance?.$options?.name || 'Unknown Component',
+                            timestamp: new Date().toISOString()
+                        };
+                    };
+                    
+                    const recoverFromError = () => {
+                        console.log('🔄 Recovering from error...');
+                        hasError.value = false;
+                        errorInfo.value = null;
+                        errorDetails.value = null;
+                        showErrorDetails.value = false;
+                        showErrorComponent.value = false;
+                    };
+                    
+                    const toggleErrorDetails = () => {
+                        showErrorDetails.value = !showErrorDetails.value;
+                    };
+                    
+                    // Error trigger methods
+                    const triggerRenderError = () => {
+                        lastClicked.value = 'Render Error';
+                        // This will cause a template rendering error
+                        const error = new Error('Simulated render error: Cannot read property of undefined');
+                        handleError(error, null, 'Template rendering');
+                    };
+                    
+                    const triggerAsyncError = async () => {
+                        lastClicked.value = 'Async Error';
+                        try {
+                            // Simulate async operation failure
+                            throw new Error('Simulated async operation failure');
+                        } catch (error) {
+                            handleError(error, null, 'Async operation');
+                        }
+                    };
+                    
+                    const triggerComponentError = () => {
+                        lastClicked.value = 'Component Error';
+                        showErrorComponent.value = true;
+                        // Component will error on next render
+                        setTimeout(() => {
+                            const error = new Error('Simulated component error');
+                            handleError(error, { $options: { name: 'ErrorProneComponent' }}, 'Component lifecycle');
+                        }, 100);
+                    };
+                    
+                    const handleComponentError = (error) => {
+                        handleError(error, { $options: { name: 'ErrorProneComponent' }}, 'Child component');
+                    };
+                    
+                    return {
+                        // Error boundary
+                        hasError, errorInfo, errorDetails, showErrorDetails,
+                        handleError, recoverFromError, toggleErrorDetails,
+                        // Demo state
+                        counter, lastClicked, showErrorComponent,
+                        // Methods
+                        triggerRenderError, triggerAsyncError, triggerComponentError,
+                        handleComponentError
+                    };
+                },
+                errorCaptured(error, instance, info) {
+                    console.log('🛡️ errorCaptured hook triggered');
+                    this.handleError(error, instance, info);
+                    return false;
+                }
+            });
+            
+            // Global error handler
+            app.config.errorHandler = (error, instance, info) => {
+                console.error('🌍 Global Vue Error Handler:', { error, instance, info });
+            };
+            
+            // Register error-prone component
+            app.component('error-prone-component', {
+                template: '<div>This component is designed to error</div>',
+                mounted() {
+                    // Simulate component error
+                    setTimeout(() => {
+                        this.$emit('error', new Error('Component mounted with error'));
+                    }, 500);
+                }
+            });
+            
+            try {
+                app.mount('#app');
+                console.log('✅ Demo app mounted successfully');
+            } catch (error) {
+                console.error('🚨 Failed to mount app:', error);
+            }
+        }
+    </script>
+    
+    <!-- Load Vue.js - using a script tag that might fail -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js" onerror="console.error('Failed to load Vue.js from CDN')"></script>
+</body>
+</html>
