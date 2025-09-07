@@ -57,6 +57,76 @@
 </head>
 <body class="flex h-screen overflow-hidden">
     <div id="app" v-cloak class="flex flex-col h-full w-full">
+        <!-- Error Boundary Fallback UI -->
+        <div v-if="hasError" class="flex flex-col items-center justify-center h-screen p-8" style="background-color: var(--bg-primary); color: var(--text-primary);">
+            <div class="max-w-2xl w-full text-center">
+                <div class="mb-8">
+                    <i class="fas fa-exclamation-triangle text-6xl mb-4" :style="{color: 'var(--accent-color)'}"></i>
+                    <h1 class="text-3xl font-bold mb-4 special-font">Oops! Something went wrong</h1>
+                    <p class="text-lg mb-6" :style="{color: 'var(--text-secondary)'}">
+                        We encountered an error while rendering this part of the application. 
+                        Don't worry - your data is safe and we can try to recover.
+                    </p>
+                </div>
+                
+                <!-- Error Actions -->
+                <div class="flex flex-wrap justify-center gap-4 mb-8">
+                    <button @click="recoverFromError" class="btn-primary px-6 py-3 rounded-lg font-semibold transition flex items-center">
+                        <i class="fas fa-redo mr-2"></i>
+                        Try Again
+                    </button>
+                    <button @click="window.location.reload()" class="btn-secondary px-6 py-3 rounded-lg font-semibold transition flex items-center">
+                        <i class="fas fa-refresh mr-2"></i>
+                        Refresh Page
+                    </button>
+                    <button @click="toggleErrorDetails" class="btn-secondary px-6 py-3 rounded-lg font-semibold transition flex items-center">
+                        <i class="fas fa-bug mr-2"></i>
+                        {{ showErrorDetails ? 'Hide' : 'Show' }} Details
+                    </button>
+                </div>
+                
+                <!-- Error Details (Collapsible) -->
+                <div v-if="showErrorDetails && errorDetails" class="text-left p-6 rounded-lg" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color);">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-tools mr-2" :style="{color: 'var(--accent-color)'}"></i>
+                        Debug Information
+                    </h3>
+                    <div class="space-y-4 text-sm" :style="{color: 'var(--text-secondary)'}">
+                        <div>
+                            <strong>Error:</strong> {{ errorDetails.message }}
+                        </div>
+                        <div>
+                            <strong>Component:</strong> {{ errorDetails.component }}
+                        </div>
+                        <div>
+                            <strong>Time:</strong> {{ errorDetails.timestamp }}
+                        </div>
+                        <div>
+                            <strong>Context:</strong> {{ errorInfo }}
+                        </div>
+                    </div>
+                    
+                    <!-- Debugging Tips -->
+                    <div class="mt-6 p-4 rounded-md" style="background-color: var(--bg-tertiary);">
+                        <h4 class="font-semibold mb-2" :style="{color: 'var(--accent-color)'}">
+                            <i class="fas fa-lightbulb mr-1"></i>
+                            Troubleshooting Tips:
+                        </h4>
+                        <ul class="text-sm space-y-1" :style="{color: 'var(--text-secondary)'}">
+                            <li>• Check your internet connection</li>
+                            <li>• Verify all external resources (CDNs) are accessible</li>
+                            <li>• Clear browser cache and reload</li>
+                            <li>• Check browser console for additional error details</li>
+                            <li>• Ensure JavaScript is enabled</li>
+                            <li>• Try disabling browser extensions temporarily</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Normal Application Content (Hidden when error occurs) -->
+        <template v-if="!hasError">
         <!-- Header with Authentication -->
         <header v-if="isAuthenticated" class="flex-shrink-0 px-6 py-3 flex justify-between items-center border-b" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
             <div class="flex items-center space-x-4">
@@ -666,6 +736,8 @@
         
         <!-- Add Item Modal -->
         <div v-if="showAddModal" class="modal-bg fixed inset-0 flex items-center justify-center z-50"><div class="modal-content p-8 rounded-lg shadow-2xl w-full max-w-md"><h3 class="text-2xl font-bold mb-6">New {{ addButtonText }}</h3><input type="text" v-model="newItemName" @keyup.enter="addItem" class="input-field w-full px-3 py-2 mb-6 rounded-md" :placeholder="modalPlaceholder"><div class="flex justify-end space-x-4"><button @click="showAddModal = false" class="btn-secondary px-6 py-2 rounded-lg font-semibold transition">Cancel</button><button @click="addItem" class="btn-primary px-6 py-2 rounded-lg font-bold transition">Create</button></div></div></div>
+        
+        </template> <!-- End Normal Application Content -->
     </div>
 
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -674,6 +746,75 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, query, orderBy, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+        // Dependency Loading Verification and Debugging
+        console.log('📋 Dependency Loading Check:', {
+            timestamp: new Date().toISOString(),
+            Vue: {
+                available: typeof Vue !== 'undefined',
+                version: Vue?.version || 'Unknown',
+                methods: Vue ? Object.keys(Vue).slice(0, 5) : []
+            },
+            Firebase: {
+                app: typeof initializeApp !== 'undefined',
+                auth: typeof getAuth !== 'undefined',
+                firestore: typeof getFirestore !== 'undefined',
+                storage: typeof getStorage !== 'undefined'
+            },
+            Browser: {
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                onLine: navigator.onLine,
+                cookieEnabled: navigator.cookieEnabled
+            },
+            Environment: {
+                protocol: window.location.protocol,
+                host: window.location.host,
+                pathname: window.location.pathname
+            }
+        });
+
+        // Network Error Detection
+        window.addEventListener('offline', () => {
+            console.warn('🌐 Network Status: OFFLINE - This may cause import failures');
+        });
+        
+        window.addEventListener('online', () => {
+            console.log('🌐 Network Status: ONLINE - Network connectivity restored');
+        });
+
+        // Monitor for resource loading errors
+        window.addEventListener('error', (event) => {
+            if (event.target !== window) {
+                console.error('📦 Resource Loading Error:', {
+                    type: 'Resource Load Failure',
+                    source: event.target.src || event.target.href,
+                    tagName: event.target.tagName,
+                    timestamp: new Date().toISOString(),
+                    message: 'Failed to load external resource'
+                });
+                
+                if (event.target.src?.includes('vue')) {
+                    console.error('🚨 Vue.js failed to load! This will prevent the app from working.');
+                }
+                if (event.target.src?.includes('firebase')) {
+                    console.error('🚨 Firebase failed to load! This will prevent authentication and data features.');
+                }
+            }
+        });
+
+        // Monitor for unhandled promise rejections (common with async imports)
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('🚨 Unhandled Promise Rejection:', {
+                reason: event.reason,
+                timestamp: new Date().toISOString(),
+                stack: event.reason?.stack
+            });
+            
+            if (event.reason?.message?.includes('import')) {
+                console.error('💡 This looks like a module import failure. Check network connectivity and CDN availability.');
+            }
+        });
 
         // IMPORTANT: Paste your Firebase project's configuration object here.
         const firebaseConfig = {
@@ -685,15 +826,30 @@
             appId: "1:161443188793:web:aa7d5d9df8640c6754bde8"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const storage = getStorage(app);
+        const firebaseApp = initializeApp(firebaseConfig);
+        const auth = getAuth(firebaseApp);
+        const db = getFirestore(firebaseApp);
+        const storage = getStorage(firebaseApp);
 
         const { createApp, ref, onMounted, computed, watch, nextTick } = Vue;
 
-        createApp({
+        // Enhanced error boundary logging and debugging
+        console.log('🚀 Novel Weaver: Initializing Vue application with error boundaries...');
+        console.log('📦 Dependencies check:', {
+            Vue: typeof Vue !== 'undefined' ? '✅ Loaded' : '❌ Missing',
+            Firebase: typeof initializeApp !== 'undefined' ? '✅ Loaded' : '❌ Missing'
+        });
+
+        const app = createApp({
             setup() {
+                console.log('🔧 Setting up Vue component with error boundary support');
+                
+                // Error Boundary State - Added for comprehensive error handling
+                const hasError = ref(false);
+                const errorInfo = ref(null);
+                const errorDetails = ref(null);
+                const showErrorDetails = ref(false);
+                
                 // State
                 const user = ref(null), novel = ref({ title: 'The Last Banana', theme: 'theme-dark', authorName: '', description: '', coverUrl: null, published: false });
                 const chapters = ref([]), characters = ref([]), notes = ref([]), plotPoints = ref([]);
@@ -1375,6 +1531,58 @@
                     });
                 };
 
+                // Error Boundary Methods - Handle Vue rendering and component errors
+                const handleError = (error, instance, info) => {
+                    console.error('🚨 Vue Error Boundary Caught:', {
+                        error: error.message,
+                        stack: error.stack,
+                        componentInstance: instance?.$options?.name || 'Unknown Component',
+                        errorInfo: info,
+                        timestamp: new Date().toISOString(),
+                        userAgent: navigator.userAgent,
+                        url: window.location.href
+                    });
+                    
+                    hasError.value = true;
+                    errorInfo.value = info;
+                    errorDetails.value = {
+                        message: error.message,
+                        stack: error.stack,
+                        component: instance?.$options?.name || 'Unknown Component',
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    // Log additional debugging information
+                    console.error('🔍 Debug Info:', {
+                        'Vue Version': Vue.version,
+                        'Error Type': error.constructor.name,
+                        'Is Development': process?.env?.NODE_ENV !== 'production',
+                        'Browser': navigator.userAgent.split(' ').slice(-2).join(' '),
+                        'Memory Usage': performance.memory ? {
+                            used: Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB',
+                            total: Math.round(performance.memory.totalJSHeapSize / 1048576) + ' MB'
+                        } : 'Not Available'
+                    });
+                };
+
+                const recoverFromError = () => {
+                    console.log('🔄 Attempting to recover from error...');
+                    hasError.value = false;
+                    errorInfo.value = null;
+                    errorDetails.value = null;
+                    showErrorDetails.value = false;
+                    
+                    // Reset to a safe state
+                    activeTab.value = 'chapters';
+                    showAddModal.value = false;
+                    
+                    console.log('✅ Error recovery completed');
+                };
+
+                const toggleErrorDetails = () => {
+                    showErrorDetails.value = !showErrorDetails.value;
+                };
+
                 onMounted(() => {
                     onAuthStateChanged(auth, async (currentUser) => {
                         if (currentUser && !currentUser.isAnonymous) {
@@ -1414,10 +1622,20 @@
                     });
                 });
 
+                // Vue 3 Error Boundary - Catches errors in child components
+                const errorCaptured = (error, instance, info) => {
+                    console.log('🛡️ errorCaptured hook triggered');
+                    handleError(error, instance, info);
+                    // Return false to stop error propagation
+                    return false;
+                };
+
                 return { 
                     novel, chapters, characters, notes, plotPoints, activeTab, activeChapter, activeCharacter, activeNote, 
                     showAddModal, newItemName, wordCount, wordCountProgress, addButtonText, modalPlaceholder, 
                     plotColumns, draggingPlotPointId, hasActiveContent, 
+                    // Error Boundary State & Methods
+                    hasError, errorInfo, errorDetails, showErrorDetails, recoverFromError, toggleErrorDetails,
                     // Authentication
                     user, isAuthenticated, showAuthModal, authMode, authEmail, authPassword, authConfirmPassword, 
                     userRole, authError, isAuthLoading, resetEmailSent, userApproved, isAdmin, userProfile, pendingWriters,
@@ -1431,14 +1649,108 @@
                     handleCoverUpload, publishNovel, unpublishNovel, upgradeToPremium, loadPublishedNovels, selectPublishedNovel,
                     loadPendingNovels, approveNovel, rejectNovel, removeNovel, banUser, suspendUser, unbanUser,
                     rateBook, rateWriter, reactToBook, commentOnBook, loadBookComments, loadBookReactions, loadWriterRatings,
+                    // Error handling methods
+                    handleError,
                     // AI & Plot
                     aiPrompt, aiConversation, aiIsLoading, aiChatContainer, sendAiPrompt, sendChapterToAi, 
                     getPlotPointsByColumn: (col) => plotPoints.value.filter(p => p.status === col).sort((a,b) => a.order - b.order), 
                     onDragStart: (evt, point) => { evt.dataTransfer.setData('plotPointId', point.id); draggingPlotPointId.value = point.id; }, 
                     onDrop: (evt, newStatus) => { const pointId = evt.dataTransfer.getData('plotPointId'); updateDoc(doc(db,`users/${user.value.uid}/novels/main/plot`,pointId),{status:newStatus}); draggingPlotPointId.value=null; } 
                 };
+            },
+            errorCaptured(error, instance, info) {
+                // Access the handleError method from the returned object
+                console.log('🛡️ errorCaptured hook triggered');
+                // Since we're using composition API, we need to handle this differently
+                // The global error handler will catch these errors instead
+                return false; // Stop error propagation
             }
-        }).mount('#app');
+        });
+
+        // Global Error Handler - Catches unhandled Vue errors
+        app.config.errorHandler = (error, instance, info) => {
+            console.error('🌍 Global Vue Error Handler:', {
+                error: error.message,
+                stack: error.stack,
+                info: info,
+                timestamp: new Date().toISOString(),
+                component: instance?.$options?.name || instance?.$?.type?.name || 'Unknown'
+            });
+            
+            // Try to update the error state in the app instance if available
+            try {
+                const appInstance = instance?.appContext?.app?._instance;
+                if (appInstance && appInstance.setupState) {
+                    appInstance.setupState.hasError.value = true;
+                    appInstance.setupState.errorInfo.value = info;
+                    appInstance.setupState.errorDetails.value = {
+                        message: error.message,
+                        stack: error.stack,
+                        component: instance?.$options?.name || instance?.$?.type?.name || 'Unknown',
+                        timestamp: new Date().toISOString()
+                    };
+                    console.log('✅ Error state updated in component');
+                }
+            } catch (stateError) {
+                console.warn('⚠️ Could not update component error state:', stateError.message);
+            }
+            
+            // Additional debugging for common import/dependency issues
+            if (error.message.includes('Cannot read') || error.message.includes('undefined')) {
+                console.error('💡 Debug Hint: This error might be caused by:');
+                console.error('   1. Missing dependencies - check if all CDN resources loaded');
+                console.error('   2. Incorrect property access - verify object properties exist');
+                console.error('   3. Network issues - check browser network tab');
+                console.error('   4. Timing issues - ensure DOM and dependencies are ready');
+            }
+            
+            if (error.message.includes('import') || error.message.includes('module')) {
+                console.error('📦 Import Debug Hint: Check these common causes:');
+                console.error('   1. Network connectivity for CDN resources');
+                console.error('   2. CORS policy restrictions');
+                console.error('   3. Script loading order');
+                console.error('   4. Typos in import URLs');
+            }
+        };
+
+        // Enhanced mounting with error handling
+        try {
+            console.log('🎯 Mounting Vue application...');
+            app.mount('#app');
+            console.log('✅ Vue application mounted successfully');
+        } catch (mountError) {
+            console.error('🚨 Critical Error: Failed to mount Vue application', {
+                error: mountError.message,
+                stack: mountError.stack,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Fallback error display
+            const appElement = document.getElementById('app');
+            if (appElement) {
+                appElement.innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 2rem; background-color: #111827; color: #f3f4f6; font-family: Arial, sans-serif;">
+                        <h1 style="color: #f59e0b; font-size: 2rem; margin-bottom: 1rem;">⚠️ Application Failed to Load</h1>
+                        <div style="max-width: 600px; text-align: center;">
+                            <p style="margin-bottom: 1rem;">We encountered an error while starting the application. This might be due to:</p>
+                            <ul style="text-align: left; margin-bottom: 2rem; line-height: 1.6;">
+                                <li>Network connectivity issues</li>
+                                <li>Missing JavaScript dependencies</li>
+                                <li>Browser compatibility problems</li>
+                                <li>Server configuration issues</li>
+                            </ul>
+                            <button onclick="window.location.reload()" style="background-color: #f59e0b; color: #111827; padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: bold;">
+                                🔄 Retry
+                            </button>
+                        </div>
+                        <details style="margin-top: 2rem; font-family: monospace; font-size: 0.875rem;">
+                            <summary style="cursor: pointer; color: #9ca3af;">Show Error Details</summary>
+                            <pre style="background-color: #1f2937; padding: 1rem; border-radius: 0.5rem; margin-top: 1rem; overflow: auto;">${mountError.stack || mountError.message}</pre>
+                        </details>
+                    </div>
+                `;
+            }
+        }
     </script>
 </body>
 </html>
