@@ -56,13 +56,26 @@
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
-    <div id="app" v-cloak class="flex h-full w-full">
+    <div id="app" v-cloak class="flex flex-col h-full w-full">
+        <!-- Header with Authentication -->
+        <header v-if="isAuthenticated" class="flex-shrink-0 px-6 py-3 flex justify-between items-center border-b" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center">
+                    <i class="fas fa-feather-alt text-2xl mr-3" :style="{color: 'var(--accent-color)'}"></i>
+                    <h1 class="text-xl font-bold special-font">Novel Weaver</h1>
+                </div>
+                <span class="text-sm" :style="{color: 'var(--text-secondary)'}">{{ user?.email }}</span>
+                <span v-if="user?.displayName" class="text-xs px-2 py-1 rounded" style="background-color: var(--accent-color); color: #111827;">{{ user.displayName }}</span>
+            </div>
+            <button @click="logout" class="btn-secondary px-4 py-2 rounded-lg transition">
+                <i class="fas fa-sign-out-alt mr-2"></i>Logout
+            </button>
+        </header>
+
+        <!-- Main Content Area -->
+        <div v-if="isAuthenticated" class="flex flex-1 overflow-hidden">
         <!-- Sidebar -->
         <aside class="sidebar w-1/4 max-w-xs p-6 flex flex-col h-full">
-            <div class="flex items-center mb-6">
-                <i class="fas fa-feather-alt text-3xl mr-3" :style="{color: 'var(--accent-color)'}"></i>
-                <h1 class="text-2xl font-bold special-font">Novel Weaver</h1>
-            </div>
             <div class="mb-4">
                 <label for="novel-title" class="block text-sm font-semibold mb-2" :style="{color: 'var(--text-secondary)'}">Novel Title</label>
                 <input type="text" id="novel-title" class="input-field w-full rounded-md px-3 py-2" v-model="novel.title" @change="saveNovelDetails">
@@ -83,7 +96,7 @@
                  <div v-if="activeTab === 'ai'"><p class="text-sm p-2" :style="{color: 'var(--text-secondary)'}">Ask Gemini for help with your novel.</p></div>
                  <div v-if="activeTab === 'settings'">
                      <h3 class="text-lg font-semibold mb-3">Theme</h3>
-                     <select v-model="novel.theme" @change="applyTheme" class="input-field w-full rounded-md px-3 py-2 mb-6"><option value="theme-dark">Dark</option><option value="theme-light">Light</option><option value="theme-sepia">Sepia</option></select>
+                     <select v-model="novel.theme" @change="applyTheme(novel.theme)" class="input-field w-full rounded-md px-3 py-2 mb-6"><option value="theme-dark">Dark</option><option value="theme-light">Light</option><option value="theme-sepia">Sepia</option></select>
                      <h3 class="text-lg font-semibold mb-3">Export Novel</h3>
                      <button @click="exportNovel('txt')" class="w-full btn-secondary font-bold py-2 px-4 rounded-lg transition mb-2">Export as .txt</button>
                      <button @click="exportNovel('pdf')" class="w-full btn-secondary font-bold py-2 px-4 rounded-lg transition">Export as .pdf</button>
@@ -103,14 +116,81 @@
              <template v-else-if="!hasActiveContent"><div class="flex items-center justify-center h-full"><div class="text-center" :style="{color: 'var(--text-secondary)'}"><i class="fas fa-book-open text-6xl mb-4"></i><p class="text-xl">Select an item to begin.</p></div></div></template>
         </main>
         
-        <!-- Modal -->
+        </div> <!-- Close main content area -->
+        
+        <!-- Authentication Modal -->
+        <div v-if="showAuthModal && !isAuthenticated" class="modal-bg fixed inset-0 flex items-center justify-center z-50">
+            <div class="modal-content p-8 rounded-lg shadow-2xl w-full max-w-md">
+                <div class="text-center mb-6">
+                    <i class="fas fa-feather-alt text-4xl mb-2" :style="{color: 'var(--accent-color)'}"></i>
+                    <h2 class="text-2xl font-bold special-font">Welcome to Novel Weaver</h2>
+                </div>
+
+                <!-- Auth Mode Toggle -->
+                <div class="flex mb-6 border rounded-lg overflow-hidden" :style="{borderColor: 'var(--border-color)'}">
+                    <button @click="switchAuthMode('signin')" :class="authMode === 'signin' ? 'btn-primary' : 'btn-secondary'" class="flex-1 py-2 text-sm font-semibold transition">Sign In</button>
+                    <button @click="switchAuthMode('signup')" :class="authMode === 'signup' ? 'btn-primary' : 'btn-secondary'" class="flex-1 py-2 text-sm font-semibold transition">Sign Up</button>
+                </div>
+
+                <!-- Sign In Form -->
+                <form @submit.prevent="signIn" v-if="authMode === 'signin'">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Email</label>
+                            <input type="email" v-model="authEmail" required class="input-field w-full px-3 py-2 rounded-md">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Password</label>
+                            <input type="password" v-model="authPassword" required class="input-field w-full px-3 py-2 rounded-md">
+                        </div>
+                        <div v-if="authError" class="text-red-500 text-sm">{{ authError }}</div>
+                        <button type="submit" :disabled="isAuthLoading" class="w-full btn-primary py-2 rounded-lg font-bold transition">
+                            <i v-if="isAuthLoading" class="fas fa-circle-notch fa-spin mr-2"></i>
+                            Sign In
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Sign Up Form -->
+                <form @submit.prevent="signUp" v-if="authMode === 'signup'">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Email</label>
+                            <input type="email" v-model="authEmail" required class="input-field w-full px-3 py-2 rounded-md">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Password</label>
+                            <input type="password" v-model="authPassword" required class="input-field w-full px-3 py-2 rounded-md">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Confirm Password</label>
+                            <input type="password" v-model="authConfirmPassword" required class="input-field w-full px-3 py-2 rounded-md">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">I am a:</label>
+                            <select v-model="userRole" class="input-field w-full px-3 py-2 rounded-md">
+                                <option value="writer">Writer</option>
+                                <option value="reader">Reader</option>
+                            </select>
+                        </div>
+                        <div v-if="authError" class="text-red-500 text-sm">{{ authError }}</div>
+                        <button type="submit" :disabled="isAuthLoading" class="w-full btn-primary py-2 rounded-lg font-bold transition">
+                            <i v-if="isAuthLoading" class="fas fa-circle-notch fa-spin mr-2"></i>
+                            Sign Up
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Add Item Modal -->
         <div v-if="showAddModal" class="modal-bg fixed inset-0 flex items-center justify-center z-50"><div class="modal-content p-8 rounded-lg shadow-2xl w-full max-w-md"><h3 class="text-2xl font-bold mb-6">New {{ addButtonText }}</h3><input type="text" v-model="newItemName" @keyup.enter="addItem" class="input-field w-full px-3 py-2 mb-6 rounded-md" :placeholder="modalPlaceholder"><div class="flex justify-end space-x-4"><button @click="showAddModal = false" class="btn-secondary px-6 py-2 rounded-lg font-semibold transition">Cancel</button><button @click="addItem" class="btn-primary px-6 py-2 rounded-lg font-bold transition">Create</button></div></div></div>
     </div>
 
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // IMPORTANT: Paste your Firebase project's configuration object here.
@@ -138,6 +218,12 @@
                 const showAddModal = ref(false), newItemName = ref('');
                 const aiPrompt = ref(''), aiConversation = ref([]), aiIsLoading = ref(false), aiChatContainer = ref(null);
                 const draggingPlotPointId = ref(null), plotColumns = ref(['Act I', 'Act II', 'Act III', 'Resolution']);
+                
+                // Authentication state
+                const isAuthenticated = ref(false), showAuthModal = ref(false), authMode = ref('signin');
+                const authEmail = ref(''), authPassword = ref(''), authConfirmPassword = ref(''), userRole = ref('writer');
+                const authError = ref(''), isAuthLoading = ref(false);
+                
                 let debounceTimer = null, unsub = {};
 
                 // Computed
@@ -174,6 +260,81 @@
                     await addDoc(itemCollection, newItem);
                     newItemName.value = '';
                     showAddModal.value = false;
+                };
+
+                // Authentication methods
+                const signUp = async () => {
+                    if (authPassword.value !== authConfirmPassword.value) {
+                        authError.value = 'Passwords do not match';
+                        return;
+                    }
+                    if (authPassword.value.length < 6) {
+                        authError.value = 'Password must be at least 6 characters';
+                        return;
+                    }
+                    isAuthLoading.value = true;
+                    authError.value = '';
+                    try {
+                        const userCredential = await createUserWithEmailAndPassword(auth, authEmail.value, authPassword.value);
+                        await updateProfile(userCredential.user, { displayName: userRole.value });
+                        // Store user role in Firestore
+                        await setDoc(doc(db, `users/${userCredential.user.uid}`), {
+                            email: authEmail.value,
+                            role: userRole.value,
+                            createdAt: new Date()
+                        });
+                        showAuthModal.value = false;
+                        resetAuthForm();
+                    } catch (error) {
+                        authError.value = error.message;
+                    } finally {
+                        isAuthLoading.value = false;
+                    }
+                };
+
+                const signIn = async () => {
+                    isAuthLoading.value = true;
+                    authError.value = '';
+                    try {
+                        await signInWithEmailAndPassword(auth, authEmail.value, authPassword.value);
+                        showAuthModal.value = false;
+                        resetAuthForm();
+                    } catch (error) {
+                        authError.value = error.message;
+                    } finally {
+                        isAuthLoading.value = false;
+                    }
+                };
+
+                const logout = async () => {
+                    try {
+                        await signOut(auth);
+                        isAuthenticated.value = false;
+                        user.value = null;
+                        // Clear data
+                        chapters.value = [];
+                        characters.value = [];
+                        notes.value = [];
+                        plotPoints.value = [];
+                        activeChapter.value = null;
+                        activeCharacter.value = null;
+                        activeNote.value = null;
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                    }
+                };
+
+                const resetAuthForm = () => {
+                    authEmail.value = '';
+                    authPassword.value = '';
+                    authConfirmPassword.value = '';
+                    authError.value = '';
+                    userRole.value = 'writer';
+                };
+
+                const switchAuthMode = (mode) => {
+                    authMode.value = mode;
+                    resetAuthForm();
                 };
 
                 const exportNovel = (format) => {
@@ -247,16 +408,35 @@
 
                 onMounted(() => {
                     onAuthStateChanged(auth, async (currentUser) => {
-                        if (currentUser) { user.value = currentUser; setupListeners(currentUser.uid); }
-                        else {
-                            try {
-                                await signInAnonymously(auth);
-                            } catch(err) { console.error("Anonymous sign-in failed:", err); }
+                        if (currentUser && !currentUser.isAnonymous) {
+                            user.value = currentUser;
+                            isAuthenticated.value = true;
+                            setupListeners(currentUser.uid);
+                        } else if (!currentUser) {
+                            isAuthenticated.value = false;
+                            user.value = null;
+                            showAuthModal.value = true;
                         }
                     });
                 });
 
-                return { novel, chapters, characters, notes, plotPoints, activeTab, activeChapter, activeCharacter, activeNote, showAddModal, newItemName, wordCount, wordCountProgress, addButtonText, modalPlaceholder, plotColumns, draggingPlotPointId, hasActiveContent, applyTheme, selectChapter, selectCharacter, selectNote, saveChapterContent, saveNovelDetails, saveCharacter, saveNote, saveChapterGoal, addItem, exportNovel, aiPrompt, aiConversation, aiIsLoading, aiChatContainer, sendAiPrompt, sendChapterToAi, getPlotPointsByColumn: (col) => plotPoints.value.filter(p => p.status === col).sort((a,b) => a.order - b.order), onDragStart: (evt, point) => { evt.dataTransfer.setData('plotPointId', point.id); draggingPlotPointId.value = point.id; }, onDrop: (evt, newStatus) => { const pointId = evt.dataTransfer.getData('plotPointId'); updateDoc(doc(db,`users/${user.value.uid}/novels/main/plot`,pointId),{status:newStatus}); draggingPlotPointId.value=null; } };
+                return { 
+                    novel, chapters, characters, notes, plotPoints, activeTab, activeChapter, activeCharacter, activeNote, 
+                    showAddModal, newItemName, wordCount, wordCountProgress, addButtonText, modalPlaceholder, 
+                    plotColumns, draggingPlotPointId, hasActiveContent, 
+                    // Authentication
+                    user, isAuthenticated, showAuthModal, authMode, authEmail, authPassword, authConfirmPassword, 
+                    userRole, authError, isAuthLoading,
+                    // Methods
+                    applyTheme, selectChapter, selectCharacter, selectNote, saveChapterContent, saveNovelDetails, 
+                    saveCharacter, saveNote, saveChapterGoal, addItem, exportNovel, 
+                    signUp, signIn, logout, resetAuthForm, switchAuthMode,
+                    // AI & Plot
+                    aiPrompt, aiConversation, aiIsLoading, aiChatContainer, sendAiPrompt, sendChapterToAi, 
+                    getPlotPointsByColumn: (col) => plotPoints.value.filter(p => p.status === col).sort((a,b) => a.order - b.order), 
+                    onDragStart: (evt, point) => { evt.dataTransfer.setData('plotPointId', point.id); draggingPlotPointId.value = point.id; }, 
+                    onDrop: (evt, newStatus) => { const pointId = evt.dataTransfer.getData('plotPointId'); updateDoc(doc(db,`users/${user.value.uid}/novels/main/plot`,pointId),{status:newStatus}); draggingPlotPointId.value=null; } 
+                };
             }
         }).mount('#app');
     </script>
