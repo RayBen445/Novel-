@@ -74,8 +74,33 @@
 
         <!-- Main Content Area -->
         <div v-if="isAuthenticated" class="flex flex-1 overflow-hidden">
+        <!-- Main Content Area -->
+        <div v-if="isAuthenticated" class="flex flex-1 overflow-hidden">
+        
+        <!-- Writer Approval Pending Message -->
+        <div v-if="!userApproved && userProfile?.role === 'writer'" class="flex items-center justify-center w-full h-full">
+            <div class="text-center p-8 max-w-md">
+                <i class="fas fa-clock text-6xl mb-4" :style="{color: 'var(--accent-color)'}"></i>
+                <h2 class="text-2xl font-bold mb-4">Account Pending Approval</h2>
+                <p class="text-lg mb-4" :style="{color: 'var(--text-secondary)'}">
+                    Your writer account is pending approval from our admin team. 
+                    You'll be able to start writing once your account is approved.
+                </p>
+                <p class="text-sm" :style="{color: 'var(--text-secondary)'}">
+                    In the meantime, you can read novels from other approved writers.
+                </p>
+                <button @click="logout" class="mt-6 btn-secondary px-6 py-2 rounded-lg transition">
+                    <i class="fas fa-sign-out-alt mr-2"></i>Sign Out
+                </button>
+            </div>
+        </div>
+        
+        <!-- Normal Application (for approved users) -->
+        <div v-else class="flex flex-1 overflow-hidden">
+        
         <!-- Sidebar -->
-        <aside class="sidebar w-1/4 max-w-xs p-6 flex flex-col h-full">
+        <aside class="sidebar w-1/4 max-w-xs p-6 flex flex-col h-full"
+               v-if="userApproved || userProfile?.role === 'reader' || isAdmin">
             <div class="mb-4">
                 <label for="novel-title" class="block text-sm font-semibold mb-2" :style="{color: 'var(--text-secondary)'}">Novel Title</label>
                 <input type="text" id="novel-title" class="input-field w-full rounded-md px-3 py-2" v-model="novel.title" @change="saveNovelDetails">
@@ -84,6 +109,7 @@
                 <button @click="activeTab = 'chapters'" :class="['tab', {'active': activeTab === 'chapters'}]" class="py-2 text-sm font-semibold border-b-2 transition">Chapters</button>
                 <button @click="activeTab = 'characters'" :class="['tab', {'active': activeTab === 'characters'}]" class="py-2 text-sm font-semibold border-b-2 transition">Characters</button>
                 <button @click="activeTab = 'plot'" :class="['tab', {'active': activeTab === 'plot'}]" class="py-2 text-sm font-semibold border-b-2 transition">Plot</button>
+                <button v-if="isAdmin" @click="activeTab = 'admin'" :class="['tab', {'active': activeTab === 'admin'}]" class="py-2 text-sm font-semibold border-b-2 transition">Admin</button>
                 <button @click="activeTab = 'notes'" :class="['tab', {'active': activeTab === 'notes'}]" class="py-2 text-sm font-semibold border-b-2 transition">Notes</button>
                 <button @click="activeTab = 'ai'" :class="['tab', {'active': activeTab === 'ai'}]" class="py-2 text-sm font-semibold border-b-2 transition">AI</button>
                 <button @click="activeTab = 'settings'" :class="['tab', {'active': activeTab === 'settings'}]" class="py-2 text-sm font-semibold border-b-2 transition">Settings</button>
@@ -94,6 +120,29 @@
                  <div v-if="activeTab === 'plot'"><p class="text-sm p-2" :style="{color: 'var(--text-secondary)'}">Add plot points and drag them.</p></div>
                  <div v-if="activeTab === 'notes'"><ul class="space-y-2"><li v-for="note in notes" @click="selectNote(note)" :class="['list-item', {'active': activeNote?.id === note.id}]" class="cursor-pointer px-4 py-2 rounded-lg transition truncate">{{ note.title }}</li></ul></div>
                  <div v-if="activeTab === 'ai'"><p class="text-sm p-2" :style="{color: 'var(--text-secondary)'}">Ask Gemini for help with your novel.</p></div>
+                 <div v-if="activeTab === 'admin' && isAdmin">
+                     <h3 class="text-lg font-semibold mb-3">Pending Writers</h3>
+                     <div class="space-y-2 max-h-96 overflow-y-auto">
+                         <div v-for="writer in pendingWriters" :key="writer.id" 
+                              class="p-3 rounded-lg border" :style="{backgroundColor: 'var(--bg-tertiary)', borderColor: 'var(--border-color)'}">
+                             <div class="flex justify-between items-center">
+                                 <div>
+                                     <div class="font-semibold">{{ writer.email }}</div>
+                                     <div class="text-sm" :style="{color: 'var(--text-secondary)'}">
+                                         Registered: {{ formatDate(writer.createdAt) }}
+                                     </div>
+                                 </div>
+                                 <button @click="approveWriter(writer.id)" 
+                                         class="btn-primary px-3 py-1 text-sm rounded transition">
+                                     Approve
+                                 </button>
+                             </div>
+                         </div>
+                         <div v-if="pendingWriters.length === 0" class="text-center py-8" :style="{color: 'var(--text-secondary)'}">
+                             No pending writers to approve
+                         </div>
+                     </div>
+                 </div>
                  <div v-if="activeTab === 'settings'">
                      <h3 class="text-lg font-semibold mb-3">Theme</h3>
                      <select v-model="novel.theme" @change="applyTheme(novel.theme)" class="input-field w-full rounded-md px-3 py-2 mb-6"><option value="theme-dark">Dark</option><option value="theme-light">Light</option><option value="theme-sepia">Sepia</option></select>
@@ -116,6 +165,7 @@
              <template v-else-if="!hasActiveContent"><div class="flex items-center justify-center h-full"><div class="text-center" :style="{color: 'var(--text-secondary)'}"><i class="fas fa-book-open text-6xl mb-4"></i><p class="text-xl">Select an item to begin.</p></div></div></template>
         </main>
         
+        </div> <!-- Close normal application wrapper -->
         </div> <!-- Close main content area -->
         
         <!-- Authentication Modal -->
@@ -130,6 +180,7 @@
                 <div class="flex mb-6 border rounded-lg overflow-hidden" :style="{borderColor: 'var(--border-color)'}">
                     <button @click="switchAuthMode('signin')" :class="authMode === 'signin' ? 'btn-primary' : 'btn-secondary'" class="flex-1 py-2 text-sm font-semibold transition">Sign In</button>
                     <button @click="switchAuthMode('signup')" :class="authMode === 'signup' ? 'btn-primary' : 'btn-secondary'" class="flex-1 py-2 text-sm font-semibold transition">Sign Up</button>
+                    <button @click="switchAuthMode('reset')" :class="authMode === 'reset' ? 'btn-primary' : 'btn-secondary'" class="flex-1 py-2 text-sm font-semibold transition">Reset</button>
                 </div>
 
                 <!-- Sign In Form -->
@@ -180,6 +231,24 @@
                         </button>
                     </div>
                 </form>
+
+                <!-- Reset Password Form -->
+                <form @submit.prevent="resetPassword" v-if="authMode === 'reset'">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-1" :style="{color: 'var(--text-secondary)'}">Email</label>
+                            <input type="email" v-model="authEmail" required autocomplete="email" class="input-field w-full px-3 py-2 rounded-md">
+                        </div>
+                        <div v-if="authError" class="text-red-500 text-sm">{{ authError }}</div>
+                        <div v-if="resetEmailSent" class="text-green-500 text-sm">
+                            <i class="fas fa-check-circle mr-2"></i>Password reset email sent! Check your inbox.
+                        </div>
+                        <button type="submit" :disabled="isAuthLoading" class="w-full btn-primary py-2 rounded-lg font-bold transition">
+                            <i v-if="isAuthLoading" class="fas fa-circle-notch fa-spin mr-2"></i>
+                            Send Reset Email
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
         
@@ -190,8 +259,8 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, collection, addDoc, updateDoc, query, orderBy, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // IMPORTANT: Paste your Firebase project's configuration object here.
         const firebaseConfig = {
@@ -222,7 +291,8 @@
                 // Authentication state
                 const isAuthenticated = ref(false), showAuthModal = ref(false), authMode = ref('signin');
                 const authEmail = ref(''), authPassword = ref(''), authConfirmPassword = ref(''), userRole = ref('writer');
-                const authError = ref(''), isAuthLoading = ref(false);
+                const authError = ref(''), isAuthLoading = ref(false), resetEmailSent = ref(false);
+                const userApproved = ref(true), isAdmin = ref(false), userProfile = ref(null), pendingWriters = ref([]);
                 
                 let debounceTimer = null, unsub = {};
 
@@ -285,6 +355,8 @@
                         await setDoc(doc(db, `users/${userCredential.user.uid}`), {
                             email: authEmail.value,
                             role: userRole.value,
+                            approved: userRole.value === 'reader' ? true : false, // Readers auto-approved, writers need approval
+                            approvedBy: userRole.value === 'reader' ? 'auto' : null,
                             createdAt: new Date()
                         });
                         showAuthModal.value = false;
@@ -342,12 +414,73 @@
                     }
                 };
 
+                const resetPassword = async () => {
+                    if (!authEmail.value.includes('@')) {
+                        authError.value = 'Please enter a valid email address';
+                        return;
+                    }
+                    isAuthLoading.value = true;
+                    authError.value = '';
+                    try {
+                        await sendPasswordResetEmail(auth, authEmail.value);
+                        resetEmailSent.value = true;
+                    } catch (error) {
+                        authError.value = error.code === 'auth/user-not-found' 
+                            ? 'No account found with this email address.'
+                            : error.message;
+                    } finally {
+                        isAuthLoading.value = false;
+                    }
+                };
+
                 const resetAuthForm = () => {
                     authEmail.value = '';
                     authPassword.value = '';
                     authConfirmPassword.value = '';
                     authError.value = '';
                     userRole.value = 'writer';
+                    resetEmailSent.value = false;
+                };
+
+                const approveWriter = async (writerId) => {
+                    try {
+                        await updateDoc(doc(db, `users/${writerId}`), {
+                            approved: true,
+                            approvedBy: user.value.email,
+                            approvedAt: new Date()
+                        });
+                        // Reload pending writers
+                        if (isAdmin.value) {
+                            loadPendingWriters();
+                        }
+                    } catch (error) {
+                        console.error('Error approving writer:', error);
+                    }
+                };
+
+                const loadPendingWriters = async () => {
+                    if (!isAdmin.value) return;
+                    try {
+                        const usersCollection = collection(db, 'users');
+                        const q = query(usersCollection);
+                        const snapshot = await getDocs(q);
+                        const writers = [];
+                        snapshot.forEach((doc) => {
+                            const data = doc.data();
+                            if (data.role === 'writer' && !data.approved) {
+                                writers.push({ id: doc.id, ...data });
+                            }
+                        });
+                        pendingWriters.value = writers;
+                    } catch (error) {
+                        console.error('Error loading pending writers:', error);
+                    }
+                };
+
+                const formatDate = (timestamp) => {
+                    if (!timestamp) return '';
+                    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+                    return date.toLocaleDateString();
                 };
 
                 const switchAuthMode = (mode) => {
@@ -438,10 +571,31 @@
                         if (currentUser && !currentUser.isAnonymous) {
                             user.value = currentUser;
                             isAuthenticated.value = true;
+                            
+                            // Check if user is admin
+                            isAdmin.value = currentUser.email === 'oladoyeheritage445@gmail.com';
+                            
+                            // Load user profile to check approval status
+                            const userDocRef = doc(db, `users/${currentUser.uid}`);
+                            const userDocSnap = await getDoc(userDocRef);
+                            
+                            if (userDocSnap.exists()) {
+                                userProfile.value = userDocSnap.data();
+                                userApproved.value = userProfile.value.approved || false;
+                            }
+                            
+                            // Load pending writers if admin
+                            if (isAdmin.value) {
+                                loadPendingWriters();
+                            }
+                            
                             setupListeners(currentUser.uid);
                         } else if (!currentUser) {
                             isAuthenticated.value = false;
                             user.value = null;
+                            userApproved.value = true;
+                            isAdmin.value = false;
+                            userProfile.value = null;
                             showAuthModal.value = true;
                         }
                     });
@@ -453,11 +607,11 @@
                     plotColumns, draggingPlotPointId, hasActiveContent, 
                     // Authentication
                     user, isAuthenticated, showAuthModal, authMode, authEmail, authPassword, authConfirmPassword, 
-                    userRole, authError, isAuthLoading,
+                    userRole, authError, isAuthLoading, resetEmailSent, userApproved, isAdmin, userProfile, pendingWriters,
                     // Methods
                     applyTheme, selectChapter, selectCharacter, selectNote, saveChapterContent, saveNovelDetails, 
                     saveCharacter, saveNote, saveChapterGoal, addItem, exportNovel, 
-                    signUp, signIn, logout, resetAuthForm, switchAuthMode,
+                    signUp, signIn, logout, resetAuthForm, switchAuthMode, resetPassword, approveWriter, formatDate,
                     // AI & Plot
                     aiPrompt, aiConversation, aiIsLoading, aiChatContainer, sendAiPrompt, sendChapterToAi, 
                     getPlotPointsByColumn: (col) => plotPoints.value.filter(p => p.status === col).sort((a,b) => a.order - b.order), 
