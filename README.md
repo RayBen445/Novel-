@@ -45,13 +45,49 @@ Hello Professor! Follow these simple steps to get your Novel Weaver application 
 1.  **Log in** to your [Vercel](https://vercel.com) account.
 2.  From your Vercel dashboard, click **"Add New..."** -> **"Project"**.
 3.  **Import** the GitHub repository you just created. Vercel should automatically detect the project settings.
-4.  Before the final step, expand the **"Environment Variables"** section. This is crucial for keeping your AI key secret.
-5.  Add a new variable:
-    * **Name:** `GEMINI_API_KEY`
-    * **Value:** Paste your **actual Gemini API key** here.
+4.  Before the final step, expand the **"Environment Variables"** section. This is crucial for keeping your keys secure.
+5.  Add the following environment variables:
+
+### Required Environment Variables
+
+**AI API Key:**
+* **Name:** `GEMINI_API_KEY`
+* **Value:** Your actual Gemini API key
+
+**Firebase Configuration (Optional - will use defaults if not set):**
+* **Name:** `FIREBASE_API_KEY`
+* **Value:** Your Firebase API key
+* **Name:** `FIREBASE_AUTH_DOMAIN`
+* **Value:** Your Firebase auth domain (e.g., `your-project.firebaseapp.com`)
+* **Name:** `FIREBASE_PROJECT_ID`
+* **Value:** Your Firebase project ID
+* **Name:** `FIREBASE_STORAGE_BUCKET`
+* **Value:** Your Firebase storage bucket (e.g., `your-project.appspot.com`)
+* **Name:** `FIREBASE_MESSAGING_SENDER_ID`
+* **Value:** Your Firebase messaging sender ID
+* **Name:** `FIREBASE_APP_ID`
+* **Value:** Your Firebase app ID
+
 6.  Click the **"Deploy"** button.
 
 That's all, Professor! Vercel will build and deploy your application. In just a few moments, you'll have a live URL for your personal Novel Weaver app, ready to start writing "The Last Banana" or any other masterpiece you envision.
+
+## Local Development Environment Variables (Optional)
+
+For local development, you can create a `.env` file in your project root to override the default Firebase configuration:
+
+```bash
+# Create a .env file (this file should not be committed to Git)
+FIREBASE_API_KEY=your-firebase-api-key
+FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+FIREBASE_APP_ID=your-app-id
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+**Note:** If you don't set these environment variables, the application will use the default Firebase configuration that's already working. Only set these if you want to use a different Firebase project or customize the configuration.
 
 ## Development Notes
 
@@ -62,4 +98,7 @@ This application is now production-ready with:
 
 ### Build Commands
 - `npm run build-css` - Compile Tailwind CSS for production
+- `npm run build-html` - Process HTML with environment variables
+- `npm run build` - Full build (CSS + HTML processing)
 - `npm run watch-css` - Watch for changes and recompile CSS automatically during development
+- `npm run dev` - Build for development
