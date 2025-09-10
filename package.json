@@ -4,8 +4,15 @@
   "description": "A web-based novel writing application with AI assistance.",
   "main": "index.html",
   "scripts": {
+    "build-css": "tailwindcss -i ./src/input.css -o ./dist/output.css --minify",
+    "watch-css": "tailwindcss -i ./src/input.css -o ./dist/output.css --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "keywords": [],
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.13",
+    "tailwindcss": "^4.1.13"
+  }
 }
